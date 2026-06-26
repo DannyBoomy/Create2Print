@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
       quality: 'high',
     })
  
-    const imageUrl = response.data[0]?.url
-    const b64 = response.data[0]?.b64_json
+    const imageUrl = response.data?.[0]?.url
+    const b64 = response.data?.[0]?.b64_json
  
     if (!imageUrl && !b64) {
       return NextResponse.json({ error: 'No image returned' }, { status: 500 })
