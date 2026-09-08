@@ -34,31 +34,13 @@ function SizePreview({ size, selected }: { size: Size; selected: boolean }) {
   const maxH = 52
   const ratio = size.width / size.height
   let w, h
-  if (ratio >= 1) {
-    w = maxW
-    h = Math.round(maxW / ratio)
-  } else {
-    h = maxH
-    w = Math.round(maxH * ratio)
-  }
-  const isLandscape = ratio > 1.1
-  const isPortrait = ratio < 0.9
-  const orientation = isLandscape ? 'Landscape' : isPortrait ? 'Portrait' : 'Square'
-
+  if (ratio >= 1) { w = maxW; h = Math.round(maxW / ratio) }
+  else { h = maxH; w = Math.round(maxH * ratio) }
+  const orientation = ratio > 1.1 ? 'Landscape' : ratio < 0.9 ? 'Portrait' : 'Square'
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div style={{ width: maxW, height: maxH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          width: w,
-          height: h,
-          background: selected ? 'linear-gradient(135deg,rgba(109,61,243,0.15),rgba(255,140,24,0.1))' : 'rgba(0,0,0,0.05)',
-          border: selected ? '2px solid #6d3df3' : '2px solid #d0d0e0',
-          borderRadius: 3,
-          transition: 'all 0.2s',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
+        <div style={{ width: w, height: h, background: selected ? 'linear-gradient(135deg,rgba(109,61,243,0.15),rgba(255,140,24,0.1))' : 'rgba(0,0,0,0.05)', border: selected ? '2px solid #6d3df3' : '2px solid #d0d0e0', borderRadius: 3, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 8, color: selected ? '#6d3df3' : '#aaa', fontWeight: 600, opacity: 0.7 }}>{size.width}×{size.height}</span>
         </div>
       </div>
@@ -67,71 +49,58 @@ function SizePreview({ size, selected }: { size: Size; selected: boolean }) {
   )
 }
 
-// ── Product Frame Mockup on Preview ───────────────────────────────────
-function ProductMockupFrame({ product, size, imageUrl }: { product: Product; size: Size; imageUrl: string }) {
-  const isFramed = product.id === 'matte-canvas-framed'
-  const isCanvas = product.id === 'matte-canvas'
-  const isTapestry = product.id === 'wall-tapestry'
-  const isPoster = product.id === 'rolled-poster'
-
+// ── Product Frame Mockup ───────────────────────────────────────────────
+function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
   const ratio = size.width / size.height
-  const maxH = 340
-  const maxW = 340
+  const maxH = 420
+  const maxW = 520
   let imgW, imgH
   if (ratio >= 1) { imgW = maxW; imgH = Math.round(maxW / ratio) }
   else { imgH = maxH; imgW = Math.round(maxH * ratio) }
 
-  if (isFramed) {
-    const frameSize = 18
+  const clickHint = (
+    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all flex items-center justify-center cursor-zoom-in group"
+      onClick={onClickImage}>
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 shadow-lg">
+        🔍 Click to view full size
+      </div>
+    </div>
+  )
+
+  if (product.id === 'matte-canvas-framed') {
+    const frameSize = 22
     return (
       <div className="flex flex-col items-center">
-        <div style={{
-          width: imgW + frameSize * 2,
-          height: imgH + frameSize * 2,
-          background: '#1a1a1a',
-          borderRadius: 4,
-          padding: frameSize,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
-        }}>
+        <div style={{ position: 'relative', width: imgW + frameSize * 2, height: imgH + frameSize * 2, background: '#1a1a1a', borderRadius: 4, padding: frameSize, boxShadow: '0 24px 70px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.1)' }}>
           <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
+          {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
       </div>
     )
   }
 
-  if (isCanvas) {
+  if (product.id === 'matte-canvas') {
     return (
       <div className="flex flex-col items-center">
-        <div style={{
-          width: imgW,
-          height: imgH,
-          boxShadow: '6px 6px 0 #d0cec8, 0 20px 50px rgba(0,0,0,0.15)',
-          borderRadius: 2,
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
+        <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '8px 8px 0 #d0cec8, 0 24px 60px rgba(0,0,0,0.18)', borderRadius: 2, overflow: 'hidden' }}>
           <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,0.08), inset 4px 4px 12px rgba(0,0,0,0.06)' }} />
+          {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label} · 1.25" deep</div>
       </div>
     )
   }
 
-  if (isTapestry) {
+  if (product.id === 'wall-tapestry') {
     return (
       <div className="flex flex-col items-center">
-        <div style={{ background: '#8B7355', height: 10, width: imgW + 20, borderRadius: 3, boxShadow: '0 2px 6px rgba(0,0,0,0.2)', marginBottom: 2 }} />
-        <div style={{
-          width: imgW,
-          height: imgH,
-          boxShadow: '0 15px 40px rgba(0,0,0,0.15)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
+        <div style={{ background: '#8B7355', height: 12, width: imgW + 24, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', marginBottom: 2 }} />
+        <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '0 18px 50px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
           <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.03) 3px, rgba(255,255,255,0.03) 4px)', pointerEvents: 'none' }} />
+          {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Woven tapestry · {size.label} · Rod pocket included</div>
       </div>
@@ -141,17 +110,36 @@ function ProductMockupFrame({ product, size, imageUrl }: { product: Product; siz
   // Poster
   return (
     <div className="flex flex-col items-center">
-      <div style={{
-        width: imgW,
-        height: imgH,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-        borderRadius: 2,
-        overflow: 'hidden',
-        border: '1px solid rgba(0,0,0,0.06)',
-      }}>
+      <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '0 24px 70px rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)' }}>
         <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        {clickHint}
       </div>
       <div className="mt-3 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
+    </div>
+  )
+}
+
+// ── Lightbox ───────────────────────────────────────────────────────────
+function Lightbox({ imageUrl, product, size, onClose }: { imageUrl: string; product: Product | null; size: Size | null; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" style={{ background: 'rgba(0,0,0,0.93)' }} onClick={onClose}>
+      <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute -top-12 right-0 flex items-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors">
+          ✕ Close &nbsp;<span className="text-white/30 text-xs">(or press Esc)</span>
+        </button>
+        <img src={imageUrl} alt="Full size artwork" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight: '85vh', objectFit: 'contain' }} />
+        {product && size && (
+          <div className="text-center mt-4 text-white/40 text-xs">
+            {product.name} · {size.label} ({size.width}" × {size.height}")
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -259,6 +247,7 @@ export default function Home() {
   const [loadingMockup, setLoadingMockup] = useState(false)
   const [generationsLeft, setGenerationsLeft] = useState(3)
   const [error, setError] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -362,7 +351,7 @@ export default function Home() {
     setStep('product'); setSelectedProduct(null); setSelectedSize(null)
     setPrompt(''); setGeneratedImage(null); setUploadedImage(null)
     setMockupImage(null); setPrintifyImageId(null); setClientSecret(null)
-    setOrderId(null); setError(null)
+    setOrderId(null); setError(null); setLightboxOpen(false)
     setShipping({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
   }
 
@@ -372,8 +361,18 @@ export default function Home() {
   return (
     <div className="c2p-shell min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
+      {/* ── Lightbox ── */}
+      {lightboxOpen && (mockupImage || activeImage) && (
+        <Lightbox
+          imageUrl={mockupImage || activeImage || ''}
+          product={selectedProduct}
+          size={selectedSize}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+
       {/* ── Header ── */}
-      <header className="c2p-header sticky top-0 z-50">
+      <header className="c2p-header sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <button onClick={reset} className="flex items-center gap-2 flex-shrink-0">
             <img src="/logo.png" alt="Create2Print" className="h-14 sm:h-16 object-contain" />
@@ -396,25 +395,18 @@ export default function Home() {
           <div className="fade-up">
             <div className="c2p-product-hero relative text-center mb-12 overflow-hidden py-6">
               <div className="paint-stroke-left hide-mobile" />
-
-              {/* Floating artwork preview */}
               <div className="hero-frame-art hide-mobile float">
                 <div className="hero-frame-inner">
                   <div className="hero-frame-print" />
                 </div>
               </div>
               <div className="hero-leaves hide-mobile" />
-
-              {/* Sparkles */}
               <span className="hero-sparkle hero-sparkle-a hide-mobile">✦</span>
               <span className="hero-sparkle hero-sparkle-b hide-mobile">✦</span>
               <span className="hero-sparkle hero-sparkle-c hide-mobile">✦</span>
-
-              {/* AI badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase mb-6 ai-pill">
                 ✦ AI-Powered Print Shop
               </div>
-
               <div className="relative z-10">
                 <h1 className="hero-title font-extrabold leading-none mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Create It.</h1>
                 <h1 className="hero-title hero-title-gradient-1 font-extrabold leading-none mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Print It.</h1>
@@ -425,7 +417,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Product cards */}
             <div className="product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {PRODUCTS.map(product => (
                 <div key={product.id}>
@@ -457,7 +448,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Size selector with visual rectangle preview */}
                   {selectedProduct?.id === product.id && (
                     <div className="mt-3 fade-up">
                       <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Select Size</div>
@@ -466,7 +456,6 @@ export default function Home() {
                           <button key={size.label} onClick={() => setSelectedSize(size)}
                             className="py-3 px-3 rounded-xl border-2 text-center transition-all"
                             style={{ borderColor: selectedSize?.label === size.label ? '#6d3df3' : '#e8e8f0', background: selectedSize?.label === size.label ? 'rgba(109,61,243,0.05)' : 'white' }}>
-                            {/* Visual rectangle */}
                             <div className="flex justify-center mb-2">
                               <SizePreview size={size} selected={selectedSize?.label === size.label} />
                             </div>
@@ -513,7 +502,6 @@ export default function Home() {
         {step === 'create' && (
           <div className="fade-up max-w-lg mx-auto">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
-
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2"
               style={{ background: 'rgba(109,61,243,0.04)', borderColor: 'rgba(109,61,243,0.15)' }}>
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
@@ -531,13 +519,11 @@ export default function Home() {
             </div>
 
             <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
-              <button onClick={() => setCreateMode('generate')}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
+              <button onClick={() => setCreateMode('generate')} className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
                 style={{ background: createMode === 'generate' ? 'white' : 'transparent', color: createMode === 'generate' ? '#6d3df3' : '#999', boxShadow: createMode === 'generate' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
                 ✦ AI Generate
               </button>
-              <button onClick={() => setCreateMode('upload')}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
+              <button onClick={() => setCreateMode('upload')} className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
                 style={{ background: createMode === 'upload' ? 'white' : 'transparent', color: createMode === 'upload' ? '#6d3df3' : '#999', boxShadow: createMode === 'upload' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
                 ↑ Upload Image
               </button>
@@ -616,7 +602,7 @@ export default function Home() {
 
         {/* ── STEP 3: Preview ── */}
         {step === 'preview' && (
-          <div className="fade-up max-w-2xl mx-auto">
+          <div className="fade-up max-w-3xl mx-auto">
             <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
 
             <div className="text-center mb-6">
@@ -628,10 +614,10 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Product frame mockup */}
-            <div className="flex justify-center mb-6">
+            {/* Product frame mockup — bigger, clickable */}
+            <div className="flex justify-center mb-4">
               {loadingMockup ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-20">
+                <div className="flex flex-col items-center justify-center gap-3 py-24">
                   <svg className="spinner w-10 h-10" style={{ color: '#6d3df3' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
                   <p className="text-gray-400 text-sm pulse">Placing your design on the product...</p>
                 </div>
@@ -640,13 +626,21 @@ export default function Home() {
                   product={selectedProduct}
                   size={selectedSize}
                   imageUrl={mockupImage || activeImage}
+                  onClickImage={() => setLightboxOpen(true)}
                 />
               ) : null}
             </div>
 
-            {/* Dimensions callout */}
+            {/* Click to zoom hint */}
+            {!loadingMockup && activeImage && (
+              <p className="text-center text-xs text-gray-400 mb-4">
+                🔍 Click the image to view full size
+              </p>
+            )}
+
+            {/* Dimensions */}
             {!loadingMockup && selectedSize && (
-              <div className="flex items-center justify-center gap-4 mb-5">
+              <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold"
                   style={{ background: 'rgba(109,61,243,0.07)', color: '#6d3df3', border: '1px solid rgba(109,61,243,0.15)' }}>
                   📐 {selectedSize.width}" wide × {selectedSize.height}" tall
@@ -710,7 +704,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2" style={{ background: 'rgba(109,61,243,0.03)', borderColor: 'rgba(109,61,243,0.1)' }}>
-              <span className="text-sm text-gray-500">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</span>
+              <span className="text-sm text-gray-500">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
               <span className="font-bold" style={{ background: 'linear-gradient(135deg,#6d3df3,#ff8c18)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{formatPrice(total)}</span>
             </div>
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}

@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
  
@@ -36,11 +35,9 @@ export async function POST(req: NextRequest) {
  
     const size = getOpenAIImageSize(width, height)
  
-    const enhancedPrompt = `${prompt}. Ultra high resolution, print ready, highly detailed, professional artwork, suitable for large format wall art printing.`
- 
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: enhancedPrompt,
+      prompt: prompt,
       n: 1,
       size,
       quality: 'high',
@@ -56,6 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       imageUrl: imageUrl || `data:image/png;base64,${b64}`,
       generationsLeft: 3 - (count + 1),
+      size,
     })
  
   } catch (error: any) {
@@ -66,4 +64,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
- 
