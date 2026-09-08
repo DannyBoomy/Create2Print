@@ -2,9 +2,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+ 
 * { box-sizing: border-box; }
-
+ 
 body {
   background: #f8f8fc;
   color: #1a1a2e;
@@ -12,7 +12,7 @@ body {
   margin: 0;
   padding: 0;
 }
-
+ 
 /* Gradients */
 .gradient-text {
   background: linear-gradient(135deg, #7b2ff7, #f72f8e, #ff6b00);
@@ -20,28 +20,28 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
+ 
 .gradient-text-purple {
   background: linear-gradient(135deg, #7b2ff7, #c44dff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
+ 
 .gradient-text-pink {
   background: linear-gradient(135deg, #f72f8e, #ff6b6b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
+ 
 .gradient-text-orange {
   background: linear-gradient(135deg, #f77f2f, #ff6b00);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
+ 
 .gradient-btn {
   background: linear-gradient(135deg, #7b2ff7, #f72f8e, #ff6b00);
   background-size: 200% 200%;
@@ -61,7 +61,7 @@ body {
   transform: none; 
   box-shadow: none;
 }
-
+ 
 /* Paint brush blob decoration */
 .paint-blob {
   position: absolute;
@@ -76,7 +76,7 @@ body {
   pointer-events: none;
   z-index: 0;
 }
-
+ 
 /* Sparkle stars */
 .sparkle {
   position: absolute;
@@ -90,7 +90,7 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
+ 
 /* Card styles */
 .product-card {
   background: white;
@@ -110,12 +110,12 @@ body {
   border-color: #7b2ff7;
   box-shadow: 0 8px 30px rgba(123,47,247,0.2);
 }
-
+ 
 /* Step progress */
 .step-active { color: #7b2ff7; font-weight: 600; }
 .step-done { color: #7b2ff7; }
 .step-pending { color: #ccc; }
-
+ 
 /* Input styles */
 .c2p-input {
   width: 100%;
@@ -131,7 +131,7 @@ body {
 }
 .c2p-input:focus { border-color: #7b2ff7; }
 .c2p-input::placeholder { color: #aaa; }
-
+ 
 /* Trust bar icons */
 .trust-icon {
   width: 36px;
@@ -144,38 +144,45 @@ body {
   font-size: 18px;
   flex-shrink: 0;
 }
-
+ 
 /* Animations */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { animation: spin 0.8s linear infinite; }
-
+ 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 0.4s ease forwards; }
-
+ 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
 .pulse { animation: pulse 1.5s ease-in-out infinite; }
-
+ 
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(-3deg); }
   50% { transform: translateY(-10px) rotate(-3deg); }
 }
 .float { animation: float 4s ease-in-out infinite; }
-
+ 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: #f5f5f5; }
 ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
-
+ 
 /* Mobile helpers */
 @media (max-width: 640px) {
   .hide-mobile { display: none !important; }
 }
 @media (min-width: 641px) {
   .hide-desktop { display: none !important; }
+}
+@keyframes progress {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  80% { width: 88%; }
+  95% { width: 95%; }
+  100% { width: 99%; }
 }

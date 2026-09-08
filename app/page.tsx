@@ -31,15 +31,15 @@ const FAQ_ITEMS = [
 // ── Size shape helper ─────────────────────────────────────────────────
 function getSizeShape(width: number, height: number) {
   const ratio = width / height
-  if (ratio > 1.3) return { w: 48, h: 28 }
-  if (ratio < 0.77) return { w: 28, h: 44 }
-  return { w: 36, h: 36 }
+  if (ratio > 1.3) return { w: 44, h: 26 }
+  if (ratio < 0.77) return { w: 26, h: 40 }
+  return { w: 32, h: 32 }
 }
 
 // ── Product Frame Mockup ───────────────────────────────────────────────
 function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
   const ratio = size.width / size.height
-  const maxH = 420; const maxW = 520
+  const maxH = 400; const maxW = 480
   let imgW, imgH
   if (ratio >= 1) { imgW = maxW; imgH = Math.round(maxW / ratio) }
   else { imgH = maxH; imgW = Math.round(maxH * ratio) }
@@ -134,7 +134,7 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
       <PaymentElement />
       {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl border border-red-100">{error}</div>}
       <button type="submit" disabled={!stripe || loading}
-        className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[18px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none">
+        className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none">
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
@@ -196,14 +196,17 @@ export default function Home() {
   const [productImages, setProductImages] = useState<Record<string, string>>({})
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
   const [prompt, setPrompt] = useState('')
+  const [modifyPrompt, setModifyPrompt] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [mockupImage, setMockupImage] = useState<string | null>(null)
   const [printifyImageId, setPrintifyImageId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [modifying, setModifying] = useState(false)
   const [loadingMockup, setLoadingMockup] = useState(false)
   const [generationsLeft, setGenerationsLeft] = useState(3)
   const [error, setError] = useState<string | null>(null)
+  const [modifyError, setModifyError] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -268,6 +271,24 @@ export default function Home() {
     finally { setGenerating(false) }
   }
 
+  // Modify existing image with a new prompt
+  const handleModify = async () => {
+    if (!modifyPrompt.trim() || !selectedSize || generationsLeft <= 0) return
+    setModifying(true); setModifyError(null); setMockupImage(null)
+    try {
+      // Combine original prompt context with modification request
+      const combinedPrompt = `${prompt}. Modification: ${modifyPrompt}`
+      const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.width, height: selectedSize.height }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setGeneratedImage(data.imageUrl)
+      setGenerationsLeft(data.generationsLeft ?? generationsLeft - 1)
+      setModifyPrompt('')
+      await generateMockup(data.imageUrl)
+    } catch (e: any) { setModifyError(e.message) }
+    finally { setModifying(false) }
+  }
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     const reader = new FileReader()
@@ -287,18 +308,18 @@ export default function Home() {
 
   const reset = () => {
     setStep('product'); setSelectedProduct(null); setSelectedSize(null)
-    setPrompt(''); setGeneratedImage(null); setUploadedImage(null)
+    setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
     setMockupImage(null); setPrintifyImageId(null); setClientSecret(null)
-    setOrderId(null); setError(null); setLightboxOpen(false)
+    setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
     setShipping({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
   }
 
-  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white font-[DM Sans,sans-serif] shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
+  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-8 font-semibold"
-  const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[18px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+  const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
   return (
-    <div className="min-h-screen bg-[#f8f8fc] text-[#071633]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily:'Syne, sans-serif' }}>
 
       {/* Lightbox */}
       {lightboxOpen && (mockupImage || activeImage) && (
@@ -307,94 +328,95 @@ export default function Home() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
-        <div className="mx-auto flex h-[88px] max-w-[1540px] items-center justify-between px-8">
-          <div className="flex min-w-[260px] items-center">
+        <div className="mx-auto flex h-[72px] max-w-[1540px] items-center justify-between px-4 sm:px-8">
+          <div className="flex min-w-[120px] sm:min-w-[200px] items-center">
             <button onClick={reset}>
-              <img src="/logo.png" alt="Create2Print" className="h-[58px] w-auto object-contain" />
+              <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
             </button>
           </div>
           <div className="hidden flex-1 justify-center lg:flex">
             <StepBar step={step} />
           </div>
-          <div className="flex min-w-[260px] justify-end">
-            <div className="flex items-center gap-2 rounded-full bg-[#f0ecff] px-4 py-2 text-sm font-semibold text-[#4f24d8]">
-              <span className="text-base">🌐</span>
-              <span className="hidden sm:inline">Worldwide Shipping · Fast & tracked</span>
+          <div className="flex min-w-[120px] sm:min-w-[200px] justify-end">
+            <div className="flex items-center gap-2 rounded-full bg-[#f0ecff] px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#4f24d8]">
+              <span>🌐</span>
+              <span className="hidden sm:inline">Worldwide Shipping</span>
               <span className="sm:hidden">Worldwide</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="relative overflow-hidden">
+      <main className="relative overflow-x-hidden w-full">
 
         {/* ── STEP 1: Product Selection ── */}
         {step === 'product' && (
           <>
-            {/* Paint stroke left decoration */}
-            <div className="pointer-events-none absolute left-0 top-0 h-[620px] w-[390px] opacity-95">
-              <div className="absolute -left-24 top-14 h-32 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
-              <div className="absolute -left-32 top-36 h-28 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
-              <div className="absolute -left-24 top-56 h-28 w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
-              <div className="absolute -left-24 top-[345px] h-24 w-[350px] -rotate-12 rounded-full bg-gradient-to-r from-[#0075ff] via-[#00a9ff] to-transparent blur-[1px]" />
+            {/* Paint stroke — clipped so it never causes horizontal scroll */}
+            <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[300px] sm:w-[390px] opacity-90 overflow-hidden">
+              <div className="absolute -left-24 top-14 h-28 w-[320px] sm:w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
+              <div className="absolute -left-32 top-32 h-24 w-[350px] sm:w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
+              <div className="absolute -left-24 top-48 h-24 w-[320px] sm:w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
             </div>
 
-            <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-10">
+            <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
 
               {/* Hero */}
-              <div className="relative min-h-[300px]">
+              <div className="relative min-h-[240px] sm:min-h-[300px]">
                 <div className="mx-auto max-w-[720px] text-center">
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-5 py-2 text-sm font-bold text-[#5723d9]">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
                     <span>✦</span><span>AI-Powered Print Shop</span>
                   </div>
                   <div className="relative">
-                    <span className="absolute -left-8 top-20 text-3xl text-[#5e31ed]">✦</span>
-                    <span className="absolute -right-8 top-4 text-3xl text-[#c43cf1]">✦</span>
-                    <span className="absolute -right-28 top-24 text-2xl text-[#ca3af0]">✦</span>
-                    <span className="absolute left-14 -top-3 text-3xl text-[#ff9718]">✦</span>
-                    <h1 className="text-[72px] font-extrabold leading-[0.94] tracking-[-0.045em] text-[#071633] xl:text-[86px]" style={{ fontFamily:'Syne, sans-serif' }}>
-                      <span className="block">Create It.</span>
-                      <span className="mt-1 block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent">Print It. Hang It.</span>
+                    <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">✦</span>
+                    <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">✦</span>
+                    <span className="absolute left-10 -top-3 text-xl sm:text-3xl text-[#ff9718]">✦</span>
+
+                    {/* Headline — mobile: smaller, each word on own line. Desktop: larger */}
+                    <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:'Syne, sans-serif' }}>
+                      <span className="block text-[#071633]" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Create It.</span>
+                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Print It.</span>
+                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Hang It.</span>
                     </h1>
                   </div>
-                  <p className="mx-auto mt-6 max-w-[680px] text-[19px] leading-8 text-[#48527a]">
+                  <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                     Describe any artwork. We generate it, print it, and ship it to your door.
                   </p>
                 </div>
 
-                {/* Floating frame art — desktop only */}
+                {/* Floating frame — desktop only */}
                 <div className="absolute right-8 top-0 hidden xl:block">
                   <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
-                    <div className="h-[245px] w-[195px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
+                    <div className="h-[220px] w-[175px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
                   </div>
                 </div>
               </div>
 
-              {/* Product cards */}
-              <section className="-mt-1">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+              {/* Product cards — slightly smaller */}
+              <section className="mt-2 sm:mt-0">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {PRODUCTS.map(product => (
                     <div key={product.id}>
                       <article
                         onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
-                        className={`group relative overflow-hidden rounded-[18px] border bg-white p-3 shadow-[0_14px_35px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_20px_45px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
-                        <div className="overflow-hidden rounded-[12px] bg-[#efedf3]">
+                        className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
+                        <div className="overflow-hidden rounded-[10px] bg-[#efedf3]">
                           {productImages[product.id] ? (
-                            <img src={productImages[product.id]} alt={product.name} className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+                            <img src={productImages[product.id]} alt={product.name} className="h-[170px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
                           ) : (
-                            <div className="h-[220px] w-full flex items-center justify-center text-5xl bg-gray-50">{product.emoji}</div>
+                            <div className="h-[170px] w-full flex items-center justify-center text-4xl bg-gray-50">{product.emoji}</div>
                           )}
                         </div>
-                        <div className="relative px-2 pb-2 pt-4">
-                          <h3 className="text-[21px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                          <p className="mt-1 min-h-[46px] max-w-[90%] text-[15px] leading-[1.45] text-[#747aa2]">{product.material}</p>
-                          <div className="mt-4 flex items-center justify-between">
+                        <div className="relative px-1.5 pb-1.5 pt-3">
+                          <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
+                          <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>{product.material}</p>
+                          <div className="mt-3 flex items-center justify-between">
                             <div>
-                              <div className="text-xs text-[#747aa2]">from</div>
-                              <span className="text-[19px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
+                              <div className="text-[11px] text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>from</div>
+                              <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
                             </div>
                             <button type="button"
-                              className={`flex h-11 w-11 items-center justify-center rounded-full border text-2xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_10px_25px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>
+                              className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_8px_20px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>
                               →
                             </button>
                           </div>
@@ -403,21 +425,21 @@ export default function Home() {
 
                       {/* Size selector */}
                       {selectedProduct?.id === product.id && (
-                        <div className="mt-4">
-                          <div className="mb-3 flex items-end justify-between">
-                            <h2 className="text-[20px] font-extrabold">Select Size</h2>
-                            <p className="hidden text-sm text-[#7a7fa3] md:block">All sizes in inches</p>
+                        <div className="mt-3">
+                          <div className="mb-2 flex items-end justify-between">
+                            <h2 className="text-[17px] font-extrabold">Select Size</h2>
+                            <p className="hidden text-xs text-[#7a7fa3] md:block" style={{ fontFamily:'DM Sans, sans-serif' }}>All sizes in inches</p>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-2 gap-2.5">
                             {product.sizes.map(size => {
                               const shape = getSizeShape(size.width, size.height)
                               const sel = selectedSize?.label === size.label
                               return (
                                 <button key={size.label} type="button" onClick={() => setSelectedSize(size)}
-                                  className={`group flex flex-col items-center justify-center rounded-[16px] border bg-white shadow-[0_12px_28px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-4 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
-                                  <div className="mb-3 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
-                                  <span className="text-[15px] font-extrabold">{size.label}</span>
-                                  <span className="mt-0.5 text-[16px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
+                                  className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
+                                  <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
+                                  <span className="text-[13px] font-extrabold">{size.label}</span>
+                                  <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
                                 </button>
                               )
                             })}
@@ -430,31 +452,31 @@ export default function Home() {
               </section>
 
               {/* CTA */}
-              <section className="mx-auto mt-8 max-w-[620px] text-center">
+              <section className="mx-auto mt-7 max-w-[580px] text-center">
                 <button type="button"
                   onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
                   disabled={!selectedProduct || !selectedSize}
                   className={primaryBtn}>
                   ✦ CONTINUE — DESIGN YOUR ART →
                 </button>
-                <p className="mt-2 text-sm text-[#878cac]">
+                <p className="mt-2 text-sm text-[#878cac]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                   {!selectedProduct ? 'Select a product to continue' : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
                 </p>
               </section>
 
               {/* Trust bar */}
-              <section className="mx-auto mt-8 grid max-w-[1260px] grid-cols-2 gap-y-5 pb-10 pt-2 lg:grid-cols-4">
+              <section className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
                 {[
                   { icon: '✦', title: 'AI-Generated Art', subtitle: 'Unique to you' },
                   { icon: '🎖', title: 'Premium Quality', subtitle: 'Museum grade prints' },
                   { icon: '🚚', title: 'Worldwide Shipping', subtitle: 'Fast & tracked' },
                   { icon: '🔒', title: 'Secure Checkout', subtitle: 'Safe & protected' },
                 ].map((item, index) => (
-                  <div key={item.title} className={`flex items-center justify-center gap-4 px-6 ${index > 0 ? 'lg:border-l lg:border-[#dcddea]' : ''}`}>
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eee9ff] text-xl text-[#5d26ef]">{item.icon}</div>
+                  <div key={item.title} className={`flex items-center justify-center gap-3 px-4 ${index > 0 ? 'lg:border-l lg:border-[#dcddea]' : ''}`}>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eee9ff] text-lg text-[#5d26ef]">{item.icon}</div>
                     <div>
-                      <div className="text-[14px] font-extrabold">{item.title}</div>
-                      <div className="mt-0.5 text-[14px] text-[#73799e]">{item.subtitle}</div>
+                      <div className="text-[13px] font-extrabold">{item.title}</div>
+                      <div className="mt-0.5 text-[13px] text-[#73799e]" style={{ fontFamily:'DM Sans, sans-serif' }}>{item.subtitle}</div>
                     </div>
                   </div>
                 ))}
@@ -463,9 +485,9 @@ export default function Home() {
 
             {/* FAQ */}
             <section className="bg-[#f4f3ff] border-t border-[#e5e6ef]">
-              <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14">
-                <h2 className="font-extrabold text-3xl mb-2 text-center" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Frequently Asked Questions</h2>
-                <p className="text-center text-[#747aa2] text-sm mb-8">Everything you need to know about Create2Print</p>
+              <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+                <h2 className="font-extrabold text-2xl sm:text-3xl mb-2 text-center" style={{ color:'#071633' }}>Frequently Asked Questions</h2>
+                <p className="text-center text-[#747aa2] text-sm mb-8" style={{ fontFamily:'DM Sans, sans-serif' }}>Everything you need to know about Create2Print</p>
                 <div className="bg-white rounded-2xl border border-gray-100 px-6 divide-y divide-gray-50 shadow-sm">
                   {FAQ_ITEMS.map(item => <FAQItem key={item.q} q={item.q} a={item.a} />)}
                 </div>
@@ -476,10 +498,9 @@ export default function Home() {
 
         {/* ── STEP 2: Create ── */}
         {step === 'create' && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
 
-            {/* Selected product badge */}
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
                 {productImages[selectedProduct?.id || ''] ? (
@@ -488,19 +509,18 @@ export default function Home() {
                   <div className="w-full h-full flex items-center justify-center text-2xl">{selectedProduct?.emoji}</div>
                 )}
               </div>
-              <div className="flex-1">
-                <div className="font-extrabold text-[#071633]">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
+                <div className="text-sm text-[#6d3df3] font-semibold" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
               </div>
-              <div className="font-extrabold text-lg text-[#5924f5]">{formatPrice(selectedSize?.price || 0)}</div>
+              <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
 
-            {/* Mode toggle */}
             <div className="flex bg-[#f0eeff] rounded-2xl p-1 mb-6">
               {(['generate','upload'] as const).map(mode => (
                 <button key={mode} onClick={() => setCreateMode(mode)}
                   className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
-                  style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
+                  style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none', fontFamily:'DM Sans, sans-serif' }}>
                   {mode === 'generate' ? '✦ AI Generate' : '↑ Upload Image'}
                 </button>
               ))}
@@ -512,20 +532,21 @@ export default function Home() {
                   <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe your artwork</label>
                   <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
-                    rows={5} className={inputClass + " resize-none leading-relaxed"} />
+                    rows={5} className={inputClass + " resize-none leading-relaxed"} style={{ fontFamily:'DM Sans, sans-serif' }} />
                 </div>
                 <div>
-                  <div className="text-xs text-[#8a89a8] mb-2 font-semibold">Quick ideas →</div>
+                  <div className="text-xs text-[#8a89a8] mb-2 font-semibold" style={{ fontFamily:'DM Sans, sans-serif' }}>Quick ideas →</div>
                   <div className="flex flex-wrap gap-2">
                     {['Anime girl in a cherry blossom forest, Studio Ghibli style','Retro synthwave city at night, neon lights','Abstract geometric mandala in gold and deep blue','Cute astronaut floating in colorful galaxy','Moody forest path in autumn, cinematic lighting'].map(s => (
                       <button key={s} onClick={() => setPrompt(s)}
-                        className="text-xs px-3 py-1.5 rounded-full border-2 border-[#e8e8f0] text-[#888] bg-white font-medium transition-all hover:border-[#6d3df3] hover:text-[#6d3df3]">
+                        className="text-xs px-3 py-1.5 rounded-full border-2 border-[#e8e8f0] text-[#888] bg-white font-medium transition-all hover:border-[#6d3df3] hover:text-[#6d3df3]"
+                        style={{ fontFamily:'DM Sans, sans-serif' }}>
                         {s}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
+                <div className="flex items-center gap-2 text-xs text-[#8a89a8]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                   <div className="flex gap-1">
                     {[0,1,2].map(i => (
                       <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
@@ -533,7 +554,7 @@ export default function Home() {
                   </div>
                   <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining</span>
                 </div>
-                {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
+                {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{error}</div>}
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
@@ -542,7 +563,16 @@ export default function Home() {
                     </span>
                   ) : '✦ Generate Artwork'}
                 </button>
-                {generating && <p className="text-center text-[#8a89a8] text-xs animate-pulse">Creating high-resolution artwork for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") print... (~15 seconds)</p>}
+                {generating && (
+                  <div className="space-y-2">
+                    <div className="w-full bg-[#e8e4ff] rounded-full h-2 overflow-hidden">
+                     <div className="h-2 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] animate-[progress_15s_ease-in-out_forwards]" />
+                    </div>
+                   <p className="text-center text-[#8a89a8] text-xs" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                     Creating your artwork for {selectedSize?.label}... (~15 seconds)
+                   </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -553,7 +583,7 @@ export default function Home() {
                     <span className="text-xl flex-shrink-0">⚠️</span>
                     <div>
                       <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
-                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.uploadAspectRatioNote}</div>
+                      <div className="text-xs leading-relaxed text-amber-800" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.uploadAspectRatioNote}</div>
                       <div className="text-xs mt-1 font-bold text-amber-900">Recommended for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
                     </div>
                   </div>
@@ -563,7 +593,7 @@ export default function Home() {
                   className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-12 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
                   <div className="text-5xl mb-3">📁</div>
                   <div className="font-bold text-[#071633]">Click to upload your image</div>
-                  <div className="text-[#8a89a8] text-sm mt-1">PNG, JPG, WEBP supported</div>
+                  <div className="text-[#8a89a8] text-sm mt-1" style={{ fontFamily:'DM Sans, sans-serif' }}>PNG, JPG, WEBP supported</div>
                 </button>
               </div>
             )}
@@ -572,47 +602,85 @@ export default function Home() {
 
         {/* ── STEP 3: Preview ── */}
         {step === 'preview' && (
-          <div className="mx-auto max-w-3xl px-4 sm:px-8 py-10">
+          <div className="mx-auto max-w-3xl px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
             <div className="text-center mb-6">
-              <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>
-                {loadingMockup ? 'Generating preview...' : 'Looking great! 🎉'}
+              <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>
+                {loadingMockup || modifying ? 'Generating...' : 'Looking great! 🎉'}
               </h2>
-              <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
+              <p className="text-[#747aa2] text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
+            {/* Product mockup */}
             <div className="flex justify-center mb-4">
-              {loadingMockup ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-24">
+              {loadingMockup || modifying ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                  <p className="text-[#8a89a8] text-sm animate-pulse">Placing your design on the product...</p>
+                  <p className="text-[#8a89a8] text-sm animate-pulse" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                    {modifying ? 'Applying your modifications...' : 'Placing your design on the product...'}
+                  </p>
                 </div>
               ) : activeImage && selectedProduct && selectedSize ? (
                 <ProductMockupFrame product={selectedProduct} size={selectedSize} imageUrl={mockupImage || activeImage} onClickImage={() => setLightboxOpen(true)} />
               ) : null}
             </div>
 
-            {!loadingMockup && activeImage && (
-              <p className="text-center text-xs text-[#8a89a8] mb-4">🔍 Click the image to view full size</p>
+            {!loadingMockup && !modifying && activeImage && (
+              <p className="text-center text-xs text-[#8a89a8] mb-4" style={{ fontFamily:'DM Sans, sans-serif' }}>🔍 Click the image to view full size</p>
             )}
 
-            {!loadingMockup && selectedSize && (
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
+            {/* Dimensions */}
+            {!loadingMockup && !modifying && selectedSize && (
+              <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                   📐 {selectedSize.width}" wide × {selectedSize.height}" tall
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                   {selectedSize.aspectRatio} ratio
                 </div>
               </div>
             )}
 
+            {/* ── MODIFICATION BOX ── */}
+            {!loadingMockup && !modifying && activeImage && (
+              <div className="mb-5 rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">✏️</span>
+                  <h3 className="font-extrabold text-[#071633] text-sm">Want to modify this image?</h3>
+                  {generationsLeft > 0 && (
+                    <span className="ml-auto text-xs text-[#8a89a8] font-medium" style={{ fontFamily:'DM Sans, sans-serif' }}>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} left</span>
+                  )}
+                </div>
+                <textarea
+                  value={modifyPrompt}
+                  onChange={e => setModifyPrompt(e.target.value)}
+                  placeholder="e.g. Make the sky more dramatic, add a full moon, change the color palette to warm tones..."
+                  rows={3}
+                  className={inputClass + " resize-none leading-relaxed mb-3"}
+                  style={{ fontFamily:'DM Sans, sans-serif' }}
+                />
+                {modifyError && <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-red-500 text-xs mb-3" style={{ fontFamily:'DM Sans, sans-serif' }}>{modifyError}</div>}
+                <button
+                  onClick={handleModify}
+                  disabled={modifying || !modifyPrompt.trim() || generationsLeft <= 0}
+                  className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-6 py-3 text-sm font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                  {modifying ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                      Applying modifications...
+                    </span>
+                  ) : generationsLeft <= 0 ? 'No generations remaining' : '✦ Apply Modifications'}
+                </button>
+              </div>
+            )}
+
+            {/* Order summary */}
             <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
                 <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                 <span>Shipping (estimated)</span><span>~$4.99</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
@@ -621,8 +689,8 @@ export default function Home() {
               </div>
             </div>
 
-            <button onClick={() => setStep('shipping')} disabled={loadingMockup} className={primaryBtn}>✦ Ship This to Me →</button>
-            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
+            <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Ship This to Me →</button>
+            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
               Start over with a different design
             </button>
           </div>
@@ -630,33 +698,33 @@ export default function Home() {
 
         {/* ── STEP 4: Shipping ── */}
         {step === 'shipping' && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('preview')} className={backBtn}>← Back to preview</button>
-            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Where should we send it?</h2>
-            <p className="text-[#747aa2] text-sm mb-6">Worldwide shipping available.</p>
+            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>Where should we send it?</h2>
+            <p className="text-[#747aa2] text-sm mb-6" style={{ fontFamily:'DM Sans, sans-serif' }}>Worldwide shipping available.</p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} />
-                <input className={inputClass} placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} />
+                <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                <input className={inputClass} placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
               </div>
-              <input className={inputClass} type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} />
-              <input className={inputClass} placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} />
+              <input className={inputClass} type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+              <input className={inputClass} placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} />
-                <input className={inputClass} placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} />
+                <input className={inputClass} placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                <input className={inputClass} placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} />
-                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))}>
+                <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }}>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <span className="text-sm text-[#747aa2]">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
+              <span className="text-sm text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
               <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
             </div>
-            {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
+            {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{error}</div>}
             <div className="mt-5">
               <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
             </div>
@@ -665,16 +733,16 @@ export default function Home() {
 
         {/* ── STEP 5: Payment ── */}
         {step === 'payment' && clientSecret && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('shipping')} className={backBtn}>← Back</button>
-            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Secure Checkout</h2>
-            <p className="text-[#747aa2] text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
+            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>Secure Checkout</h2>
+            <p className="text-[#747aa2] text-sm mb-6" style={{ fontFamily:'DM Sans, sans-serif' }}>Powered by Stripe. Your card info is never stored.</p>
             <div className="rounded-2xl p-5 mb-6 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
-                <span>{selectedProduct?.name} · {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</span>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
                 <span>Shipping to {shipping.country}</span><span>~$4.99</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
@@ -685,7 +753,7 @@ export default function Home() {
             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme:'stripe', variables:{ colorPrimary:'#6d3df3', borderRadius:'12px' } } }}>
               <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
             </Elements>
-            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">
+            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]" style={{ fontFamily:'DM Sans, sans-serif' }}>
               <span>🔒 SSL encrypted</span>
               <span>💳 Powered by Stripe</span>
               <span>🖨️ Fulfilled by Printify</span>
@@ -695,19 +763,19 @@ export default function Home() {
 
         {/* ── STEP 6: Confirmation ── */}
         {step === 'confirm' && (
-          <div className="text-center py-16 max-w-lg mx-auto px-4">
+          <div className="text-center py-16 max-w-lg mx-auto px-4 w-full">
             <div className="text-7xl mb-6">🎉</div>
-            <h2 className="font-extrabold text-4xl mb-2" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Order Placed!</h2>
-            <p className="text-[#747aa2] mb-1">Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
-            <p className="text-[#8a89a8] text-sm mb-8">Tracking info will be sent to <strong>{shipping.email}</strong></p>
+            <h2 className="font-extrabold text-3xl sm:text-4xl mb-2" style={{ color:'#071633' }}>Order Placed!</h2>
+            <p className="text-[#747aa2] mb-1" style={{ fontFamily:'DM Sans, sans-serif' }}>Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
+            <p className="text-[#8a89a8] text-sm mb-8" style={{ fontFamily:'DM Sans, sans-serif' }}>Tracking info will be sent to <strong>{shipping.email}</strong></p>
             {orderId && (
               <div className="inline-block rounded-2xl px-6 py-4 mb-8 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-                <div className="text-xs text-[#8a89a8] mb-1 uppercase tracking-wider">Order ID</div>
+                <div className="text-xs text-[#8a89a8] mb-1 uppercase tracking-wider" style={{ fontFamily:'DM Sans, sans-serif' }}>Order ID</div>
                 <div className="font-mono text-sm font-bold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{orderId}</div>
               </div>
             )}
             <button onClick={reset} className={primaryBtn + " max-w-xs mx-auto"}>✦ Create Another Print</button>
-            <p className="text-[#b0b5cc] text-xs mt-8">
+            <p className="text-[#b0b5cc] text-xs mt-8" style={{ fontFamily:'DM Sans, sans-serif' }}>
               Questions? <a href="mailto:support@create2print.store" className="underline hover:text-[#6d3df3]">support@create2print.store</a>
             </p>
           </div>
@@ -716,12 +784,12 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-[#e5e6ef] bg-white/40">
-        <div className="mx-auto flex max-w-[1540px] items-center justify-between px-8 py-5 text-sm text-[#757b9f]">
-          <div className="flex items-center gap-5">
-            <img src="/logo.png" alt="Create2Print" className="h-8 object-contain" />
+        <div className="mx-auto flex max-w-[1540px] items-center justify-between px-4 sm:px-8 py-5 text-sm text-[#757b9f]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Create2Print" className="h-7 object-contain" />
             <span className="hidden sm:inline">Art for a brighter world.</span>
           </div>
-          <div className="flex gap-7">
+          <div className="flex gap-5">
             <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contact</a>
             <span>© 2025 Create2Print</span>
           </div>
