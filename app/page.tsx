@@ -28,7 +28,38 @@ const FAQ_ITEMS = [
   { q: 'What if my order gets lost in the mail?', a: 'Contact us at support@create2print.store. We\'ll investigate with the carrier and either reship your order or issue a full refund.' },
 ]
 
-// ── Size shape helper ─────────────────────────────────────────────────
+const ALL_PROMPTS = [
+  'Anime girl in a cherry blossom forest, Studio Ghibli style',
+  'Retro synthwave city at night, neon lights, 80s aesthetic',
+  'Abstract geometric mandala in gold and deep blue',
+  'Cute astronaut floating in a colorful galaxy, cartoon style',
+  'Moody forest path in autumn, cinematic lighting',
+  'A lone wolf howling at a full moon over snowy mountains',
+  'Tropical beach at sunset, warm golden tones, photorealistic',
+  'Watercolor painting of a cozy cabin in a snowy forest',
+  'Dragon soaring over a fantasy city, epic scale, dramatic sky',
+  'Minimalist Japanese landscape, Mount Fuji at dawn, pastel tones',
+  'Abstract fluid art in deep purple and gold, luxury feel',
+  'Neon-lit Tokyo street at night, rain reflections, cinematic',
+  'Cute cat portrait in oil painting style, rich colors',
+  'Space nebula with a lone astronaut, vast and dramatic',
+  'Vintage travel poster of Paris, art deco style',
+  'Underwater scene with bioluminescent creatures, deep ocean blue',
+  'Mountain range at golden hour, oil painting, impressionist style',
+  'Cyberpunk cityscape from above, neon and rain',
+  'Botanical illustration of tropical flowers, detailed and vibrant',
+  'Portrait of a lion in royal attire, regal and majestic',
+  'Surreal floating islands with waterfalls, fantasy landscape',
+  'Cozy coffee shop interior, warm lighting, rainy window',
+  'Wolf pack in a moonlit snowy forest, dramatic and cinematic',
+  'Colorful koi fish in a zen garden pond, Japanese art style',
+  'A futuristic spaceship above an alien planet, epic sci-fi',
+]
+
+function getRandomPrompts() {
+  return [...ALL_PROMPTS].sort(() => Math.random() - 0.5).slice(0, 5)
+}
+
 function getSizeShape(width: number, height: number) {
   const ratio = width / height
   if (ratio > 1.3) return { w: 44, h: 26 }
@@ -36,7 +67,6 @@ function getSizeShape(width: number, height: number) {
   return { w: 32, h: 32 }
 }
 
-// ── Product Frame Mockup ───────────────────────────────────────────────
 function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
   const ratio = size.width / size.height
   const maxH = 400; const maxW = 480
@@ -97,7 +127,6 @@ function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product
   )
 }
 
-// ── Lightbox ───────────────────────────────────────────────────────────
 function Lightbox({ imageUrl, product, size, onClose }: { imageUrl: string; product: Product | null; size: Size | null; onClose: () => void }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -119,7 +148,6 @@ function Lightbox({ imageUrl, product, size, onClose }: { imageUrl: string; prod
   )
 }
 
-// ── Stripe Checkout ────────────────────────────────────────────────────
 function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: number }) {
   const stripe = useStripe(); const elements = useElements()
   const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null)
@@ -146,7 +174,6 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
   )
 }
 
-// ── FAQ ────────────────────────────────────────────────────────────────
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -161,7 +188,6 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
-// ── Step Bar ───────────────────────────────────────────────────────────
 function StepBar({ step }: { step: Step }) {
   const steps: { id: Step; label: string }[] = [
     { id: 'product', label: 'Product' }, { id: 'create', label: 'Create' },
@@ -188,7 +214,6 @@ function StepBar({ step }: { step: Step }) {
   )
 }
 
-// ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -197,6 +222,7 @@ export default function Home() {
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
   const [prompt, setPrompt] = useState('')
   const [modifyPrompt, setModifyPrompt] = useState('')
+  const [promptSuggestions, setPromptSuggestions] = useState<string[]>(getRandomPrompts)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [mockupImage, setMockupImage] = useState<string | null>(null)
@@ -271,12 +297,10 @@ export default function Home() {
     finally { setGenerating(false) }
   }
 
-  // Modify existing image with a new prompt
   const handleModify = async () => {
     if (!modifyPrompt.trim() || !selectedSize || generationsLeft <= 0) return
     setModifying(true); setModifyError(null); setMockupImage(null)
     try {
-      // Combine original prompt context with modification request
       const combinedPrompt = `${prompt}. Modification: ${modifyPrompt}`
       const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.width, height: selectedSize.height }) })
       const data = await res.json()
@@ -312,16 +336,16 @@ export default function Home() {
     setMockupImage(null); setPrintifyImageId(null); setClientSecret(null)
     setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
     setShipping({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
+    setPromptSuggestions(getRandomPrompts())
   }
 
-  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
+  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)] font-['DM_Sans']"
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-8 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
   return (
-    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily:'Syne, sans-serif' }}>
+    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily:"'DM Sans', sans-serif" }}>
 
-      {/* Lightbox */}
       {lightboxOpen && (mockupImage || activeImage) && (
         <Lightbox imageUrl={mockupImage || activeImage || ''} product={selectedProduct} size={selectedSize} onClose={() => setLightboxOpen(false)} />
       )}
@@ -349,10 +373,9 @@ export default function Home() {
 
       <main className="relative overflow-x-hidden w-full">
 
-        {/* ── STEP 1: Product Selection ── */}
+        {/* ── STEP 1: Product ── */}
         {step === 'product' && (
           <>
-            {/* Paint stroke — clipped so it never causes horizontal scroll */}
             <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[300px] sm:w-[390px] opacity-90 overflow-hidden">
               <div className="absolute -left-24 top-14 h-28 w-[320px] sm:w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
               <div className="absolute -left-32 top-32 h-24 w-[350px] sm:w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
@@ -360,8 +383,6 @@ export default function Home() {
             </div>
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
-
-              {/* Hero */}
               <div className="relative min-h-[240px] sm:min-h-[300px]">
                 <div className="mx-auto max-w-[720px] text-center">
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
@@ -371,20 +392,16 @@ export default function Home() {
                     <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">✦</span>
                     <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">✦</span>
                     <span className="absolute left-10 -top-3 text-xl sm:text-3xl text-[#ff9718]">✦</span>
-
-                    {/* Headline — mobile: smaller, each word on own line. Desktop: larger */}
-                    <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:'Syne, sans-serif' }}>
-                      <span className="block text-[#071633]" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Create It.</span>
-                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Print It.</span>
-                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(38px, 8vw, 86px)' }}>Hang It.</span>
+                    <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
+                      <span className="block text-[#071633]" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Create It.</span>
+                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Print It.</span>
+                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
                     </h1>
                   </div>
-                  <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                  <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]">
                     Describe any artwork. We generate it, print it, and ship it to your door.
                   </p>
                 </div>
-
-                {/* Floating frame — desktop only */}
                 <div className="absolute right-8 top-0 hidden xl:block">
                   <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
                     <div className="h-[220px] w-[175px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
@@ -392,13 +409,11 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Product cards — slightly smaller */}
               <section className="mt-2 sm:mt-0">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {PRODUCTS.map(product => (
                     <div key={product.id}>
-                      <article
-                        onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
+                      <article onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
                         className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
                         <div className="overflow-hidden rounded-[10px] bg-[#efedf3]">
                           {productImages[product.id] ? (
@@ -409,26 +424,22 @@ export default function Home() {
                         </div>
                         <div className="relative px-1.5 pb-1.5 pt-3">
                           <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                          <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>{product.material}</p>
+                          <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.material}</p>
                           <div className="mt-3 flex items-center justify-between">
                             <div>
-                              <div className="text-[11px] text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>from</div>
+                              <div className="text-[11px] text-[#747aa2]">from</div>
                               <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
                             </div>
-                            <button type="button"
-                              className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_8px_20px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>
-                              →
-                            </button>
+                            <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_8px_20px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
                           </div>
                         </div>
                       </article>
 
-                      {/* Size selector */}
                       {selectedProduct?.id === product.id && (
                         <div className="mt-3">
                           <div className="mb-2 flex items-end justify-between">
                             <h2 className="text-[17px] font-extrabold">Select Size</h2>
-                            <p className="hidden text-xs text-[#7a7fa3] md:block" style={{ fontFamily:'DM Sans, sans-serif' }}>All sizes in inches</p>
+                            <p className="hidden text-xs text-[#7a7fa3] md:block">All sizes in inches</p>
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
                             {product.sizes.map(size => {
@@ -451,20 +462,16 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* CTA */}
               <section className="mx-auto mt-7 max-w-[580px] text-center">
-                <button type="button"
-                  onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
-                  disabled={!selectedProduct || !selectedSize}
-                  className={primaryBtn}>
+                <button type="button" onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
+                  disabled={!selectedProduct || !selectedSize} className={primaryBtn}>
                   ✦ CONTINUE — DESIGN YOUR ART →
                 </button>
-                <p className="mt-2 text-sm text-[#878cac]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                <p className="mt-2 text-sm text-[#878cac]">
                   {!selectedProduct ? 'Select a product to continue' : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
                 </p>
               </section>
 
-              {/* Trust bar */}
               <section className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
                 {[
                   { icon: '✦', title: 'AI-Generated Art', subtitle: 'Unique to you' },
@@ -476,18 +483,17 @@ export default function Home() {
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eee9ff] text-lg text-[#5d26ef]">{item.icon}</div>
                     <div>
                       <div className="text-[13px] font-extrabold">{item.title}</div>
-                      <div className="mt-0.5 text-[13px] text-[#73799e]" style={{ fontFamily:'DM Sans, sans-serif' }}>{item.subtitle}</div>
+                      <div className="mt-0.5 text-[13px] text-[#73799e]">{item.subtitle}</div>
                     </div>
                   </div>
                 ))}
               </section>
             </section>
 
-            {/* FAQ */}
             <section className="bg-[#f4f3ff] border-t border-[#e5e6ef]">
               <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
-                <h2 className="font-extrabold text-2xl sm:text-3xl mb-2 text-center" style={{ color:'#071633' }}>Frequently Asked Questions</h2>
-                <p className="text-center text-[#747aa2] text-sm mb-8" style={{ fontFamily:'DM Sans, sans-serif' }}>Everything you need to know about Create2Print</p>
+                <h2 className="font-extrabold text-2xl sm:text-3xl mb-2 text-center text-[#071633]">Frequently Asked Questions</h2>
+                <p className="text-center text-[#747aa2] text-sm mb-8">Everything you need to know about Create2Print</p>
                 <div className="bg-white rounded-2xl border border-gray-100 px-6 divide-y divide-gray-50 shadow-sm">
                   {FAQ_ITEMS.map(item => <FAQItem key={item.q} q={item.q} a={item.a} />)}
                 </div>
@@ -511,7 +517,7 @@ export default function Home() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
+                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
               </div>
               <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
@@ -520,7 +526,7 @@ export default function Home() {
               {(['generate','upload'] as const).map(mode => (
                 <button key={mode} onClick={() => setCreateMode(mode)}
                   className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
-                  style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none', fontFamily:'DM Sans, sans-serif' }}>
+                  style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
                   {mode === 'generate' ? '✦ AI Generate' : '↑ Upload Image'}
                 </button>
               ))}
@@ -532,21 +538,33 @@ export default function Home() {
                   <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe your artwork</label>
                   <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
-                    rows={5} className={inputClass + " resize-none leading-relaxed"} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                    rows={5} className={inputClass + " resize-none leading-relaxed"} />
                 </div>
+
+                {/* Randomized prompt suggestions with refresh */}
                 <div>
-                  <div className="text-xs text-[#8a89a8] mb-2 font-semibold" style={{ fontFamily:'DM Sans, sans-serif' }}>Quick ideas →</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-[#8a89a8] font-semibold">Quick ideas →</div>
+                    <button onClick={() => setPromptSuggestions(getRandomPrompts())}
+                      className="text-xs text-[#6d3df3] font-semibold hover:text-[#5924f5] transition-colors flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                      </svg>
+                      Refresh
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {['Anime girl in a cherry blossom forest, Studio Ghibli style','Retro synthwave city at night, neon lights','Abstract geometric mandala in gold and deep blue','Cute astronaut floating in colorful galaxy','Moody forest path in autumn, cinematic lighting'].map(s => (
+                    {promptSuggestions.map(s => (
                       <button key={s} onClick={() => setPrompt(s)}
-                        className="text-xs px-3 py-1.5 rounded-full border-2 border-[#e8e8f0] text-[#888] bg-white font-medium transition-all hover:border-[#6d3df3] hover:text-[#6d3df3]"
-                        style={{ fontFamily:'DM Sans, sans-serif' }}>
+                        className="text-xs px-3 py-1.5 rounded-full border-2 border-[#e8e8f0] text-[#888] bg-white font-medium transition-all hover:border-[#6d3df3] hover:text-[#6d3df3]">
                         {s}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-[#8a89a8]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+
+                <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
                   <div className="flex gap-1">
                     {[0,1,2].map(i => (
                       <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
@@ -554,7 +572,9 @@ export default function Home() {
                   </div>
                   <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining</span>
                 </div>
-                {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{error}</div>}
+
+                {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
+
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
@@ -563,14 +583,24 @@ export default function Home() {
                     </span>
                   ) : '✦ Generate Artwork'}
                 </button>
+
+                {/* Loading bar with spinner */}
                 {generating && (
-                  <div className="space-y-2">
-                    <div className="w-full bg-[#e8e4ff] rounded-full h-2 overflow-hidden">
-                     <div className="h-2 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] animate-[progress_15s_ease-in-out_forwards]" />
+                  <div className="space-y-3 py-1">
+                    <div className="flex items-center gap-3">
+                      <svg className="animate-spin w-5 h-5 flex-shrink-0 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
+                      </svg>
+                      <div className="flex-1 bg-[#e8e4ff] rounded-full h-4 overflow-hidden shadow-inner">
+                        <div className="h-4 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] shadow-[0_0_12px_rgba(239,72,167,0.5)]"
+                          style={{ animation:'progress 28s ease-in-out forwards' }} />
+                      </div>
+                      <span className="text-xs font-bold text-[#6d3df3] flex-shrink-0">~30s</span>
                     </div>
-                   <p className="text-center text-[#8a89a8] text-xs" style={{ fontFamily:'DM Sans, sans-serif' }}>
-                     Creating your artwork for {selectedSize?.label}... (~15 seconds)
-                   </p>
+                    <p className="text-center text-[#8a89a8] text-xs animate-pulse">
+                      Creating your artwork for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")...
+                    </p>
                   </div>
                 )}
               </div>
@@ -583,7 +613,7 @@ export default function Home() {
                     <span className="text-xl flex-shrink-0">⚠️</span>
                     <div>
                       <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
-                      <div className="text-xs leading-relaxed text-amber-800" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.uploadAspectRatioNote}</div>
+                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.uploadAspectRatioNote}</div>
                       <div className="text-xs mt-1 font-bold text-amber-900">Recommended for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
                     </div>
                   </div>
@@ -593,7 +623,7 @@ export default function Home() {
                   className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-12 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
                   <div className="text-5xl mb-3">📁</div>
                   <div className="font-bold text-[#071633]">Click to upload your image</div>
-                  <div className="text-[#8a89a8] text-sm mt-1" style={{ fontFamily:'DM Sans, sans-serif' }}>PNG, JPG, WEBP supported</div>
+                  <div className="text-[#8a89a8] text-sm mt-1">PNG, JPG, WEBP supported</div>
                 </button>
               </div>
             )}
@@ -605,18 +635,19 @@ export default function Home() {
           <div className="mx-auto max-w-3xl px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
             <div className="text-center mb-6">
-              <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>
+              <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">
                 {loadingMockup || modifying ? 'Generating...' : 'Looking great! 🎉'}
               </h2>
-              <p className="text-[#747aa2] text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
+              <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Product mockup */}
-            <div className="flex justify-center mb-4">
+            {/* Image with shadow for pop effect */}
+            <div className="flex justify-center mb-4"
+              style={{ filter: (!loadingMockup && !modifying && activeImage) ? 'drop-shadow(0 24px 48px rgba(109,61,243,0.22)) drop-shadow(0 8px 20px rgba(0,0,0,0.15))' : 'none' }}>
               {loadingMockup || modifying ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                  <p className="text-[#8a89a8] text-sm animate-pulse" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                  <p className="text-[#8a89a8] text-sm animate-pulse">
                     {modifying ? 'Applying your modifications...' : 'Placing your design on the product...'}
                   </p>
                 </div>
@@ -626,43 +657,35 @@ export default function Home() {
             </div>
 
             {!loadingMockup && !modifying && activeImage && (
-              <p className="text-center text-xs text-[#8a89a8] mb-4" style={{ fontFamily:'DM Sans, sans-serif' }}>🔍 Click the image to view full size</p>
+              <p className="text-center text-xs text-[#8a89a8] mb-4">🔍 Click the image to view full size</p>
             )}
 
-            {/* Dimensions */}
             {!loadingMockup && !modifying && selectedSize && (
               <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
                   📐 {selectedSize.width}" wide × {selectedSize.height}" tall
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
                   {selectedSize.aspectRatio} ratio
                 </div>
               </div>
             )}
 
-            {/* ── MODIFICATION BOX ── */}
+            {/* Modification box */}
             {!loadingMockup && !modifying && activeImage && (
               <div className="mb-5 rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">✏️</span>
                   <h3 className="font-extrabold text-[#071633] text-sm">Want to modify this image?</h3>
                   {generationsLeft > 0 && (
-                    <span className="ml-auto text-xs text-[#8a89a8] font-medium" style={{ fontFamily:'DM Sans, sans-serif' }}>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} left</span>
+                    <span className="ml-auto text-xs text-[#8a89a8] font-medium">{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} left</span>
                   )}
                 </div>
-                <textarea
-                  value={modifyPrompt}
-                  onChange={e => setModifyPrompt(e.target.value)}
-                  placeholder="e.g. Make the sky more dramatic, add a full moon, change the color palette to warm tones..."
-                  rows={3}
-                  className={inputClass + " resize-none leading-relaxed mb-3"}
-                  style={{ fontFamily:'DM Sans, sans-serif' }}
-                />
-                {modifyError && <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-red-500 text-xs mb-3" style={{ fontFamily:'DM Sans, sans-serif' }}>{modifyError}</div>}
-                <button
-                  onClick={handleModify}
-                  disabled={modifying || !modifyPrompt.trim() || generationsLeft <= 0}
+                <textarea value={modifyPrompt} onChange={e => setModifyPrompt(e.target.value)}
+                  placeholder="e.g. Make the sky more dramatic, add a full moon, change colors to warm tones..."
+                  rows={3} className={inputClass + " resize-none leading-relaxed mb-3"} />
+                {modifyError && <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-red-500 text-xs mb-3">{modifyError}</div>}
+                <button onClick={handleModify} disabled={modifying || !modifyPrompt.trim() || generationsLeft <= 0}
                   className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-6 py-3 text-sm font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {modifying ? (
                     <span className="flex items-center justify-center gap-2">
@@ -676,11 +699,11 @@ export default function Home() {
 
             {/* Order summary */}
             <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
                 <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
                 <span>Shipping (estimated)</span><span>~$4.99</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
@@ -690,7 +713,7 @@ export default function Home() {
             </div>
 
             <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Ship This to Me →</button>
-            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
+            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
               Start over with a different design
             </button>
           </div>
@@ -700,31 +723,31 @@ export default function Home() {
         {step === 'shipping' && (
           <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('preview')} className={backBtn}>← Back to preview</button>
-            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>Where should we send it?</h2>
-            <p className="text-[#747aa2] text-sm mb-6" style={{ fontFamily:'DM Sans, sans-serif' }}>Worldwide shipping available.</p>
+            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Where should we send it?</h2>
+            <p className="text-[#747aa2] text-sm mb-6">Worldwide shipping available.</p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
-                <input className={inputClass} placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} />
+                <input className={inputClass} placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} />
               </div>
-              <input className={inputClass} type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
-              <input className={inputClass} placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+              <input className={inputClass} type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} />
+              <input className={inputClass} placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
-                <input className={inputClass} placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
+                <input className={inputClass} placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} />
+                <input className={inputClass} placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }} />
-                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))} style={{ fontFamily:'DM Sans, sans-serif' }}>
+                <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} />
+                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))}>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <span className="text-sm text-[#747aa2]" style={{ fontFamily:'DM Sans, sans-serif' }}>{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
+              <span className="text-sm text-[#747aa2]">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
               <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
             </div>
-            {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm" style={{ fontFamily:'DM Sans, sans-serif' }}>{error}</div>}
+            {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
             <div className="mt-5">
               <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
             </div>
@@ -735,14 +758,14 @@ export default function Home() {
         {step === 'payment' && clientSecret && (
           <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('shipping')} className={backBtn}>← Back</button>
-            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1" style={{ color:'#071633' }}>Secure Checkout</h2>
-            <p className="text-[#747aa2] text-sm mb-6" style={{ fontFamily:'DM Sans, sans-serif' }}>Powered by Stripe. Your card info is never stored.</p>
+            <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Secure Checkout</h2>
+            <p className="text-[#747aa2] text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
             <div className="rounded-2xl p-5 mb-6 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2" style={{ fontFamily:'DM Sans, sans-serif' }}>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
                 <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
                 <span>Shipping to {shipping.country}</span><span>~$4.99</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
@@ -753,7 +776,7 @@ export default function Home() {
             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme:'stripe', variables:{ colorPrimary:'#6d3df3', borderRadius:'12px' } } }}>
               <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
             </Elements>
-            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">
               <span>🔒 SSL encrypted</span>
               <span>💳 Powered by Stripe</span>
               <span>🖨️ Fulfilled by Printify</span>
@@ -765,17 +788,17 @@ export default function Home() {
         {step === 'confirm' && (
           <div className="text-center py-16 max-w-lg mx-auto px-4 w-full">
             <div className="text-7xl mb-6">🎉</div>
-            <h2 className="font-extrabold text-3xl sm:text-4xl mb-2" style={{ color:'#071633' }}>Order Placed!</h2>
-            <p className="text-[#747aa2] mb-1" style={{ fontFamily:'DM Sans, sans-serif' }}>Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
-            <p className="text-[#8a89a8] text-sm mb-8" style={{ fontFamily:'DM Sans, sans-serif' }}>Tracking info will be sent to <strong>{shipping.email}</strong></p>
+            <h2 className="font-extrabold text-3xl sm:text-4xl mb-2 text-[#071633]">Order Placed!</h2>
+            <p className="text-[#747aa2] mb-1">Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
+            <p className="text-[#8a89a8] text-sm mb-8">Tracking info will be sent to <strong>{shipping.email}</strong></p>
             {orderId && (
               <div className="inline-block rounded-2xl px-6 py-4 mb-8 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-                <div className="text-xs text-[#8a89a8] mb-1 uppercase tracking-wider" style={{ fontFamily:'DM Sans, sans-serif' }}>Order ID</div>
+                <div className="text-xs text-[#8a89a8] mb-1 uppercase tracking-wider">Order ID</div>
                 <div className="font-mono text-sm font-bold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{orderId}</div>
               </div>
             )}
             <button onClick={reset} className={primaryBtn + " max-w-xs mx-auto"}>✦ Create Another Print</button>
-            <p className="text-[#b0b5cc] text-xs mt-8" style={{ fontFamily:'DM Sans, sans-serif' }}>
+            <p className="text-[#b0b5cc] text-xs mt-8">
               Questions? <a href="mailto:support@create2print.store" className="underline hover:text-[#6d3df3]">support@create2print.store</a>
             </p>
           </div>
@@ -784,7 +807,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-[#e5e6ef] bg-white/40">
-        <div className="mx-auto flex max-w-[1540px] items-center justify-between px-4 sm:px-8 py-5 text-sm text-[#757b9f]" style={{ fontFamily:'DM Sans, sans-serif' }}>
+        <div className="mx-auto flex max-w-[1540px] items-center justify-between px-4 sm:px-8 py-5 text-sm text-[#757b9f]">
           <div className="flex items-center gap-4">
             <img src="/logo.png" alt="Create2Print" className="h-7 object-contain" />
             <span className="hidden sm:inline">Art for a brighter world.</span>
