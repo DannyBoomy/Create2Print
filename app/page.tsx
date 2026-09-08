@@ -67,9 +67,12 @@ function getSizeShape(width: number, height: number) {
   return { w: 32, h: 32 }
 }
 
+// ── Product Frame Mockup ───────────────────────────────────────────────
+// Frame BORDERS the image — never clips into it
 function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
   const ratio = size.width / size.height
-  const maxH = 400; const maxW = 480
+  // Bigger image sizes
+  const maxH = 520; const maxW = 580
   let imgW, imgH
   if (ratio >= 1) { imgW = maxW; imgH = Math.round(maxW / ratio) }
   else { imgH = maxH; imgW = Math.round(maxH * ratio) }
@@ -81,45 +84,87 @@ function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product
   )
 
   if (product.id === 'matte-canvas-framed') {
-    const f = 22
+    // Frame wraps AROUND the image — image shows fully inside
+    const frameThickness = 24
     return (
       <div className="flex flex-col items-center">
-        <div style={{ position:'relative', width:imgW+f*2, height:imgH+f*2, background:'#1a1a1a', borderRadius:4, padding:f, boxShadow:'0 24px 70px rgba(0,0,0,0.28)' }}>
-          <img src={imageUrl} alt="Your design" style={{ width:imgW, height:imgH, objectFit:'cover', display:'block' }} />
-          {clickHint}
+        <div style={{
+          display: 'inline-block',
+          padding: frameThickness,
+          background: 'linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #111 100%)',
+          borderRadius: 6,
+          boxShadow: '0 2px 0 #555 inset, 0 -2px 0 #000 inset, 4px 0 8px rgba(0,0,0,0.4), -4px 0 8px rgba(0,0,0,0.4), 0 30px 60px rgba(0,0,0,0.35)',
+          position: 'relative',
+        }}>
+          {/* Inner mat/border effect */}
+          <div style={{
+            padding: 8,
+            background: '#f5f0eb',
+            display: 'inline-block',
+          }}>
+            <div style={{ position: 'relative', width: imgW, height: imgH }}>
+              <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
+              {clickHint}
+            </div>
+          </div>
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
       </div>
     )
   }
+
   if (product.id === 'matte-canvas') {
+    // Canvas wrap — image shows fully, 3D edge effect on right/bottom
     return (
       <div className="flex flex-col items-center">
-        <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'8px 8px 0 #d0cec8, 0 24px 60px rgba(0,0,0,0.18)', borderRadius:2, overflow:'hidden' }}>
-          <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-          <div style={{ position:'absolute', inset:0, boxShadow:'inset 0 0 0 3px rgba(0,0,0,0.08)' }} />
-          {clickHint}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <div style={{ position: 'relative', width: imgW, height: imgH }}>
+            <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
+            {/* Gallery wrap edge effect — doesn't cover image */}
+            <div style={{ position: 'absolute', top: 0, right: -10, width: 10, height: imgH, background: 'linear-gradient(90deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45))', transform: 'skewY(-0.5deg)' }} />
+            <div style={{ position: 'absolute', bottom: -10, left: 0, width: imgW, height: 10, background: 'linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.4))', transform: 'skewX(-0.5deg)' }} />
+            {clickHint}
+          </div>
         </div>
-        <div className="mt-3 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label} · 1.25" deep</div>
+        <div className="mt-4 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label} · 1.25" deep</div>
       </div>
     )
   }
+
   if (product.id === 'wall-tapestry') {
+    // Tapestry — image shows fully with rod above
     return (
       <div className="flex flex-col items-center">
-        <div style={{ background:'#8B7355', height:12, width:imgW+24, borderRadius:3, boxShadow:'0 2px 8px rgba(0,0,0,0.2)', marginBottom:2 }} />
-        <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'0 18px 50px rgba(0,0,0,0.18)', overflow:'hidden' }}>
-          <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+        {/* Rod */}
+        <div style={{
+          width: imgW + 40,
+          height: 14,
+          background: 'linear-gradient(180deg, #b8956a 0%, #8B7355 40%, #6b5a40 100%)',
+          borderRadius: 7,
+          boxShadow: '0 3px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2)',
+          marginBottom: 3,
+          position: 'relative',
+        }}>
+          {/* Rod end caps */}
+          <div style={{ position: 'absolute', left: -4, top: -3, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #c4a47a, #8B7355)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
+          <div style={{ position: 'absolute', right: -4, top: -3, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #c4a47a, #8B7355)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
+        </div>
+        <div style={{ position: 'relative', width: imgW, height: imgH }}>
+          <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          {/* Fabric texture overlay */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.025) 3px, rgba(255,255,255,0.025) 4px)', pointerEvents: 'none' }} />
           {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Woven tapestry · {size.label} · Rod pocket included</div>
       </div>
     )
   }
+
+  // Rolled poster — image shows fully, clean border
   return (
     <div className="flex flex-col items-center">
-      <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'0 24px 70px rgba(0,0,0,0.2)', borderRadius:2, overflow:'hidden', border:'1px solid rgba(0,0,0,0.06)' }}>
-        <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+      <div style={{ position: 'relative', width: imgW, height: imgH, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         {clickHint}
       </div>
       <div className="mt-3 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
@@ -339,7 +384,7 @@ export default function Home() {
     setPromptSuggestions(getRandomPrompts())
   }
 
-  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)] font-['DM_Sans']"
+  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-8 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
@@ -506,7 +551,6 @@ export default function Home() {
         {step === 'create' && (
           <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
-
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
                 {productImages[selectedProduct?.id || ''] ? (
@@ -540,8 +584,6 @@ export default function Home() {
                     placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
                     rows={5} className={inputClass + " resize-none leading-relaxed"} />
                 </div>
-
-                {/* Randomized prompt suggestions with refresh */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs text-[#8a89a8] font-semibold">Quick ideas →</div>
@@ -563,7 +605,6 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
                   <div className="flex gap-1">
                     {[0,1,2].map(i => (
@@ -572,9 +613,7 @@ export default function Home() {
                   </div>
                   <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining</span>
                 </div>
-
                 {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
-
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
@@ -583,8 +622,6 @@ export default function Home() {
                     </span>
                   ) : '✦ Generate Artwork'}
                 </button>
-
-                {/* Loading bar with spinner */}
                 {generating && (
                   <div className="space-y-3 py-1">
                     <div className="flex items-center gap-3">
@@ -632,18 +669,17 @@ export default function Home() {
 
         {/* ── STEP 3: Preview ── */}
         {step === 'preview' && (
-          <div className="mx-auto max-w-3xl px-4 sm:px-8 py-10 w-full">
+          <div className="mx-auto max-w-4xl px-4 sm:px-8 py-10 w-full">
             <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
-            <div className="text-center mb-6">
+            <div className="text-center mb-8">
               <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">
                 {loadingMockup || modifying ? 'Generating...' : 'Looking great! 🎉'}
               </h2>
               <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Image with shadow for pop effect */}
-            <div className="flex justify-center mb-4"
-              style={{ filter: (!loadingMockup && !modifying && activeImage) ? 'drop-shadow(0 24px 48px rgba(109,61,243,0.22)) drop-shadow(0 8px 20px rgba(0,0,0,0.15))' : 'none' }}>
+            {/* Product mockup — no shadow, bigger, frame borders image correctly */}
+            <div className="flex justify-center mb-6">
               {loadingMockup || modifying ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
@@ -673,7 +709,7 @@ export default function Home() {
 
             {/* Modification box */}
             {!loadingMockup && !modifying && activeImage && (
-              <div className="mb-5 rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-5">
+              <div className="mb-5 rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-5 max-w-2xl mx-auto">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">✏️</span>
                   <h3 className="font-extrabold text-[#071633] text-sm">Want to modify this image?</h3>
@@ -698,7 +734,7 @@ export default function Home() {
             )}
 
             {/* Order summary */}
-            <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+            <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff] max-w-2xl mx-auto">
               <div className="flex justify-between text-sm text-[#747aa2] mb-2">
                 <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
@@ -712,10 +748,12 @@ export default function Home() {
               </div>
             </div>
 
-            <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Ship This to Me →</button>
-            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
-              Start over with a different design
-            </button>
+            <div className="max-w-2xl mx-auto">
+              <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Ship This to Me →</button>
+              <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
+                Start over with a different design
+              </button>
+            </div>
           </div>
         )}
 
