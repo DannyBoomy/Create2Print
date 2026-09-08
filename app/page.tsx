@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { PRODUCTS, Product, Size, formatPrice, ProductId } from '@/lib/products'
+import { PRODUCTS, Product, Size, formatPrice } from '@/lib/products'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -25,93 +25,71 @@ const FAQ_ITEMS = [
   { q: 'Will my image look good printed at large sizes?', a: 'Yes. Every image is automatically generated at the highest available resolution and optimized for your selected product size before your order is placed.' },
   { q: 'Who prints and ships my order?', a: 'Create2Print is proudly partnered with Printify, a globally trusted print-on-demand network with production facilities worldwide. Your order is printed on professional-grade equipment and shipped directly to you.' },
   { q: 'Can I order from outside the US?', a: 'Yes — we ship worldwide to most countries through our Printify print partners. Simply select your country during checkout.' },
-  { q: 'What if my order gets lost in the mail?', a: 'Contact us at support@create2print.ai. We\'ll investigate with the carrier and either reship your order or issue a full refund.' },
+  { q: 'What if my order gets lost in the mail?', a: 'Contact us at support@create2print.store. We\'ll investigate with the carrier and either reship your order or issue a full refund.' },
 ]
 
-// ── Size Preview Rectangle ─────────────────────────────────────────────
-function SizePreview({ size, selected }: { size: Size; selected: boolean }) {
-  const maxW = 52
-  const maxH = 52
-  const ratio = size.width / size.height
-  let w, h
-  if (ratio >= 1) { w = maxW; h = Math.round(maxW / ratio) }
-  else { h = maxH; w = Math.round(maxH * ratio) }
-  const orientation = ratio > 1.1 ? 'Landscape' : ratio < 0.9 ? 'Portrait' : 'Square'
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div style={{ width: maxW, height: maxH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: w, height: h, background: selected ? 'linear-gradient(135deg,rgba(109,61,243,0.15),rgba(255,140,24,0.1))' : 'rgba(0,0,0,0.05)', border: selected ? '2px solid #6d3df3' : '2px solid #d0d0e0', borderRadius: 3, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 8, color: selected ? '#6d3df3' : '#aaa', fontWeight: 600, opacity: 0.7 }}>{size.width}×{size.height}</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 9, color: selected ? '#6d3df3' : '#aaa', fontWeight: 500 }}>{orientation}</div>
-    </div>
-  )
+// ── Size shape helper ─────────────────────────────────────────────────
+function getSizeShape(width: number, height: number) {
+  const ratio = width / height
+  if (ratio > 1.3) return { w: 48, h: 28 }
+  if (ratio < 0.77) return { w: 28, h: 44 }
+  return { w: 36, h: 36 }
 }
 
 // ── Product Frame Mockup ───────────────────────────────────────────────
 function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
   const ratio = size.width / size.height
-  const maxH = 420
-  const maxW = 520
+  const maxH = 420; const maxW = 520
   let imgW, imgH
   if (ratio >= 1) { imgW = maxW; imgH = Math.round(maxW / ratio) }
   else { imgH = maxH; imgW = Math.round(maxH * ratio) }
 
   const clickHint = (
-    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all flex items-center justify-center cursor-zoom-in group"
-      onClick={onClickImage}>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 shadow-lg">
-        🔍 Click to view full size
-      </div>
+    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all flex items-center justify-center cursor-zoom-in group" onClick={onClickImage}>
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 shadow-lg">🔍 Click to view full size</div>
     </div>
   )
 
   if (product.id === 'matte-canvas-framed') {
-    const frameSize = 22
+    const f = 22
     return (
       <div className="flex flex-col items-center">
-        <div style={{ position: 'relative', width: imgW + frameSize * 2, height: imgH + frameSize * 2, background: '#1a1a1a', borderRadius: 4, padding: frameSize, boxShadow: '0 24px 70px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.1)' }}>
-          <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
+        <div style={{ position:'relative', width:imgW+f*2, height:imgH+f*2, background:'#1a1a1a', borderRadius:4, padding:f, boxShadow:'0 24px 70px rgba(0,0,0,0.28)' }}>
+          <img src={imageUrl} alt="Your design" style={{ width:imgW, height:imgH, objectFit:'cover', display:'block' }} />
           {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
       </div>
     )
   }
-
   if (product.id === 'matte-canvas') {
     return (
       <div className="flex flex-col items-center">
-        <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '8px 8px 0 #d0cec8, 0 24px 60px rgba(0,0,0,0.18)', borderRadius: 2, overflow: 'hidden' }}>
-          <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,0.08), inset 4px 4px 12px rgba(0,0,0,0.06)' }} />
+        <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'8px 8px 0 #d0cec8, 0 24px 60px rgba(0,0,0,0.18)', borderRadius:2, overflow:'hidden' }}>
+          <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+          <div style={{ position:'absolute', inset:0, boxShadow:'inset 0 0 0 3px rgba(0,0,0,0.08)' }} />
           {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label} · 1.25" deep</div>
       </div>
     )
   }
-
   if (product.id === 'wall-tapestry') {
     return (
       <div className="flex flex-col items-center">
-        <div style={{ background: '#8B7355', height: 12, width: imgW + 24, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', marginBottom: 2 }} />
-        <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '0 18px 50px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
-          <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.03) 3px, rgba(255,255,255,0.03) 4px)', pointerEvents: 'none' }} />
+        <div style={{ background:'#8B7355', height:12, width:imgW+24, borderRadius:3, boxShadow:'0 2px 8px rgba(0,0,0,0.2)', marginBottom:2 }} />
+        <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'0 18px 50px rgba(0,0,0,0.18)', overflow:'hidden' }}>
+          <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
           {clickHint}
         </div>
         <div className="mt-3 text-xs text-gray-400 font-medium">Woven tapestry · {size.label} · Rod pocket included</div>
       </div>
     )
   }
-
-  // Poster
   return (
     <div className="flex flex-col items-center">
-      <div style={{ position: 'relative', width: imgW, height: imgH, boxShadow: '0 24px 70px rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)' }}>
-        <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      <div style={{ position:'relative', width:imgW, height:imgH, boxShadow:'0 24px 70px rgba(0,0,0,0.2)', borderRadius:2, overflow:'hidden', border:'1px solid rgba(0,0,0,0.06)' }}>
+        <img src={imageUrl} alt="Your design" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
         {clickHint}
       </div>
       <div className="mt-3 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
@@ -122,56 +100,44 @@ function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product
 // ── Lightbox ───────────────────────────────────────────────────────────
 function Lightbox({ imageUrl, product, size, onClose }: { imageUrl: string; product: Product | null; size: Size | null; onClose: () => void }) {
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
   }, [onClose])
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" style={{ background: 'rgba(0,0,0,0.93)' }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" style={{ background:'rgba(0,0,0,0.93)' }} onClick={onClose}>
       <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute -top-12 right-0 flex items-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors">
-          ✕ Close &nbsp;<span className="text-white/30 text-xs">(or press Esc)</span>
+          ✕ Close <span className="text-white/30 text-xs">(or press Esc)</span>
         </button>
-        <img src={imageUrl} alt="Full size artwork" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight: '85vh', objectFit: 'contain' }} />
+        <img src={imageUrl} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight:'85vh', objectFit:'contain' }} />
         {product && size && (
-          <div className="text-center mt-4 text-white/40 text-xs">
-            {product.name} · {size.label} ({size.width}" × {size.height}")
-          </div>
+          <div className="text-center mt-4 text-white/40 text-xs">{product.name} · {size.label} ({size.width}" × {size.height}")</div>
         )}
       </div>
     </div>
   )
 }
 
-// ── Stripe Checkout Form ──────────────────────────────────────────────
+// ── Stripe Checkout ────────────────────────────────────────────────────
 function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: number }) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
+  const stripe = useStripe(); const elements = useElements()
+  const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null)
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!stripe || !elements) return
+    e.preventDefault(); if (!stripe || !elements) return
     setLoading(true); setError(null)
-    const { error: stripeError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: `${window.location.origin}?success=true` },
-      redirect: 'if_required',
-    })
-    if (stripeError) { setError(stripeError.message || 'Payment failed'); setLoading(false) }
-    else { onSuccess() }
+    const { error: stripeError } = await stripe.confirmPayment({ elements, confirmParams: { return_url: `${window.location.origin}?success=true` }, redirect: 'if_required' })
+    if (stripeError) { setError(stripeError.message || 'Payment failed'); setLoading(false) } else { onSuccess() }
   }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
       {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl border border-red-100">{error}</div>}
-      <button type="submit" disabled={!stripe || loading} className="gradient-btn w-full py-4 rounded-2xl font-bold text-sm tracking-widest uppercase" style={{ fontFamily: "'Syne', sans-serif" }}>
+      <button type="submit" disabled={!stripe || loading}
+        className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[18px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none">
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
             Processing...
           </span>
         ) : `✦ Pay ${formatPrice(amount)}`}
@@ -180,50 +146,41 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
   )
 }
 
-// ── FAQ Accordion ─────────────────────────────────────────────────────
+// ── FAQ ────────────────────────────────────────────────────────────────
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border-b border-gray-100 last:border-0">
+    <div className="border-b border-slate-100 last:border-0">
       <button onClick={() => setOpen(!open)} className="w-full text-left py-5 flex items-center justify-between gap-4">
-        <span className="font-semibold text-[15px] text-gray-800">{q}</span>
+        <span className="font-bold text-[15px] text-[#071633]">{q}</span>
         <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-200"
-          style={{ background: open ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#f0f0f8', color: open ? 'white' : '#999', transform: open ? 'rotate(45deg)' : 'none' }}>
-          +
-        </span>
+          style={{ background: open ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#f0f0f8', color: open ? 'white' : '#999', transform: open ? 'rotate(45deg)' : 'none' }}>+</span>
       </button>
-      {open && <div className="pb-5 text-gray-500 text-sm leading-relaxed fade-up">{a}</div>}
+      {open && <div className="pb-5 text-[#747aa2] text-sm leading-relaxed">{a}</div>}
     </div>
   )
 }
 
-// ── Step Indicator ────────────────────────────────────────────────────
+// ── Step Bar ───────────────────────────────────────────────────────────
 function StepBar({ step }: { step: Step }) {
   const steps: { id: Step; label: string }[] = [
-    { id: 'product', label: 'Product' },
-    { id: 'create', label: 'Create' },
-    { id: 'preview', label: 'Preview' },
-    { id: 'shipping', label: 'Details' },
-    { id: 'payment', label: 'Pay' },
+    { id: 'product', label: 'Product' }, { id: 'create', label: 'Create' },
+    { id: 'preview', label: 'Preview' }, { id: 'shipping', label: 'Details' }, { id: 'payment', label: 'Pay' },
   ]
   const allSteps = ['product','create','preview','shipping','payment','confirm']
   const currentIdx = allSteps.indexOf(step)
   return (
-    <div className="flex items-center gap-1 sm:gap-2">
-      {steps.map((s, i) => {
-        const thisIdx = allSteps.indexOf(s.id)
-        const isDone = currentIdx > thisIdx
-        const isActive = currentIdx === thisIdx
+    <div className="hidden lg:flex w-full max-w-[520px] items-start justify-between">
+      {steps.map(({ id, label }, i) => {
+        const thisIdx = allSteps.indexOf(id)
+        const isDone = currentIdx > thisIdx; const isActive = currentIdx === thisIdx
         return (
-          <div key={s.id} className="flex items-center gap-1 sm:gap-2">
-            {i > 0 && <div className="hide-mobile w-6 sm:w-8 h-px" style={{ background: isDone ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />}
-            <div className={`flex items-center gap-1.5 ${isActive ? 'opacity-100' : isDone ? 'opacity-70' : 'opacity-30'}`}>
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: isDone || isActive ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e8e8f0', color: isDone || isActive ? 'white' : '#999' }}>
-                {isDone ? '✓' : i + 1}
-              </div>
-              <span className="hide-mobile text-xs font-medium" style={{ color: isActive ? '#6d3df3' : isDone ? '#6d3df3' : '#999' }}>{s.label}</span>
+          <div key={id} className="relative flex min-w-[82px] flex-col items-center">
+            {i < steps.length - 1 && <div className="absolute left-[54px] top-[16px] h-px w-[72px] bg-[#ddd9f7]" />}
+            <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${isDone || isActive ? 'bg-[#5f25f5] text-white shadow-[0_8px_24px_rgba(95,37,245,0.28)]' : 'bg-[#efeff8] text-[#8484a6]'}`}>
+              {isDone ? '✓' : i + 1}
             </div>
+            <span className={`mt-1.5 text-xs font-semibold ${isActive ? 'text-[#5f25f5]' : 'text-[#8a89a8]'}`}>{label}</span>
           </div>
         )
       })}
@@ -270,11 +227,7 @@ export default function Home() {
     if (!selectedProduct || !selectedSize) return
     setLoadingMockup(true)
     try {
-      const res = await fetch('/api/mockup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId }),
-      })
+      const res = await fetch('/api/mockup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageUrl, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId }) })
       const data = await res.json()
       if (data.mockupUrl) setMockupImage(data.mockupUrl)
       if (data.printifyImageId) setPrintifyImageId(data.printifyImageId)
@@ -284,11 +237,7 @@ export default function Home() {
 
   const createPaymentIntent = async () => {
     try {
-      const res = await fetch('/api/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label }),
-      })
+      const res = await fetch('/api/payment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label }) })
       const data = await res.json()
       if (data.clientSecret) setClientSecret(data.clientSecret)
     } catch { setError('Failed to initialize payment. Please try again.') }
@@ -297,11 +246,7 @@ export default function Home() {
   const placeOrder = async () => {
     if (!printifyImageId || !selectedProduct || !selectedSize) return
     try {
-      const res = await fetch('/api/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ printifyImageId, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId, shipping }),
-      })
+      const res = await fetch('/api/order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printifyImageId, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId, shipping }) })
       const data = await res.json()
       if (data.orderId) setOrderId(data.orderId)
     } catch {}
@@ -312,11 +257,7 @@ export default function Home() {
     if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupImage(null)
     try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: selectedSize.width, height: selectedSize.height }),
-      })
+      const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, width: selectedSize.width, height: selectedSize.height }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGeneratedImage(data.imageUrl)
@@ -333,8 +274,7 @@ export default function Home() {
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
       setUploadedImage(dataUrl); setGeneratedImage(null); setMockupImage(null)
-      await generateMockup(dataUrl)
-      setStep('preview')
+      await generateMockup(dataUrl); setStep('preview')
     }
     reader.readAsDataURL(file)
   }
@@ -342,9 +282,7 @@ export default function Home() {
   const handleShippingContinue = async () => {
     const { firstName, lastName, email, address1, city, zip, country } = shipping
     if (!firstName || !lastName || !email || !address1 || !city || !zip || !country) { setError('Please fill in all required fields'); return }
-    setError(null)
-    await createPaymentIntent()
-    setStep('payment')
+    setError(null); await createPaymentIntent(); setStep('payment')
   }
 
   const reset = () => {
@@ -355,155 +293,194 @@ export default function Home() {
     setShipping({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
   }
 
-  const backBtn = "flex items-center gap-1 text-gray-400 text-sm hover:text-purple-600 transition-colors mb-8 font-medium"
-  const primaryBtn = "gradient-btn w-full py-4 rounded-2xl font-bold text-sm tracking-widest uppercase disabled:opacity-40 disabled:cursor-not-allowed"
+  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white font-[DM Sans,sans-serif] shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
+  const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-8 font-semibold"
+  const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[18px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
   return (
-    <div className="c2p-shell min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f8f8fc] text-[#071633]" style={{ fontFamily:'DM Sans, sans-serif' }}>
 
-      {/* ── Lightbox ── */}
+      {/* Lightbox */}
       {lightboxOpen && (mockupImage || activeImage) && (
-        <Lightbox
-          imageUrl={mockupImage || activeImage || ''}
-          product={selectedProduct}
-          size={selectedSize}
-          onClose={() => setLightboxOpen(false)}
-        />
+        <Lightbox imageUrl={mockupImage || activeImage || ''} product={selectedProduct} size={selectedSize} onClose={() => setLightboxOpen(false)} />
       )}
 
-      {/* ── Header ── */}
-      <header className="c2p-header sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          <button onClick={reset} className="flex items-center gap-2 flex-shrink-0">
-            <img src="/logo.png" alt="Create2Print" className="h-14 sm:h-16 object-contain" />
-          </button>
-          <StepBar step={step} />
-          <div className="hide-mobile flex items-center gap-2 text-xs text-gray-500 flex-shrink-0">
-            <div className="trust-icon">🌍</div>
-            <div>
-              <div className="font-semibold text-gray-700">Worldwide Shipping</div>
-              <div className="text-gray-400">Fast, reliable, tracked delivery</div>
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
+        <div className="mx-auto flex h-[88px] max-w-[1540px] items-center justify-between px-8">
+          <div className="flex min-w-[260px] items-center">
+            <button onClick={reset}>
+              <img src="/logo.png" alt="Create2Print" className="h-[58px] w-auto object-contain" />
+            </button>
+          </div>
+          <div className="hidden flex-1 justify-center lg:flex">
+            <StepBar step={step} />
+          </div>
+          <div className="flex min-w-[260px] justify-end">
+            <div className="flex items-center gap-2 rounded-full bg-[#f0ecff] px-4 py-2 text-sm font-semibold text-[#4f24d8]">
+              <span className="text-base">🌐</span>
+              <span className="hidden sm:inline">Worldwide Shipping · Fast & tracked</span>
+              <span className="sm:hidden">Worldwide</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-20">
+      <main className="relative overflow-hidden">
 
         {/* ── STEP 1: Product Selection ── */}
         {step === 'product' && (
-          <div className="fade-up">
-            <div className="c2p-product-hero relative text-center mb-12 overflow-hidden py-6">
-              <div className="paint-stroke-left hide-mobile" />
-              <div className="hero-frame-art hide-mobile float">
-                <div className="hero-frame-inner">
-                  <div className="hero-frame-print" />
-                </div>
-              </div>
-              <div className="hero-leaves hide-mobile" />
-              <span className="hero-sparkle hero-sparkle-a hide-mobile">✦</span>
-              <span className="hero-sparkle hero-sparkle-b hide-mobile">✦</span>
-              <span className="hero-sparkle hero-sparkle-c hide-mobile">✦</span>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase mb-6 ai-pill">
-                ✦ AI-Powered Print Shop
-              </div>
-              <div className="relative z-10">
-                <h1 className="hero-title font-extrabold leading-none mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Create It.</h1>
-                <h1 className="hero-title hero-title-gradient-1 font-extrabold leading-none mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Print It.</h1>
-                <h1 className="hero-title hero-title-gradient-2 font-extrabold leading-none mb-6" style={{ fontFamily: "'Syne', sans-serif" }}>Hang It.</h1>
-                <p className="hero-subtitle max-w-md mx-auto leading-relaxed">
-                  Describe any artwork. We generate it, print it, and ship it to your door.
-                </p>
-              </div>
+          <>
+            {/* Paint stroke left decoration */}
+            <div className="pointer-events-none absolute left-0 top-0 h-[620px] w-[390px] opacity-95">
+              <div className="absolute -left-24 top-14 h-32 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
+              <div className="absolute -left-32 top-36 h-28 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
+              <div className="absolute -left-24 top-56 h-28 w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
+              <div className="absolute -left-24 top-[345px] h-24 w-[350px] -rotate-12 rounded-full bg-gradient-to-r from-[#0075ff] via-[#00a9ff] to-transparent blur-[1px]" />
             </div>
 
-            <div className="product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {PRODUCTS.map(product => (
-                <div key={product.id}>
-                  <div onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
-                    className={`product-card ${selectedProduct?.id === product.id ? 'selected' : ''} p-0`}>
-                    <div className="product-image-wrap relative w-full aspect-[4/3] overflow-hidden bg-gray-50" style={{ borderRadius: 10 }}>
-                      {productImages[product.id] ? (
-                        <img src={productImages[product.id]} alt={product.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">{product.emoji}</div>
-                      )}
-                      <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-sm shadow-sm">
-                        {product.emoji}
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <div className="font-bold text-gray-900 mb-0.5">{product.name}</div>
-                      <div className="text-gray-400 text-xs leading-relaxed mb-3">{product.material}</div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xs text-gray-400">from</div>
-                          <div className="font-bold text-lg" style={{ color: '#6d3df3' }}>{formatPrice(product.sizes[0].price)}</div>
-                        </div>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                          style={{ background: selectedProduct?.id === product.id ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e8e8f0', color: selectedProduct?.id === product.id ? 'white' : '#999' }}>
-                          →
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+            <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-10">
 
-                  {selectedProduct?.id === product.id && (
-                    <div className="mt-3 fade-up">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Select Size</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {product.sizes.map(size => (
-                          <button key={size.label} onClick={() => setSelectedSize(size)}
-                            className="py-3 px-3 rounded-xl border-2 text-center transition-all"
-                            style={{ borderColor: selectedSize?.label === size.label ? '#6d3df3' : '#e8e8f0', background: selectedSize?.label === size.label ? 'rgba(109,61,243,0.05)' : 'white' }}>
-                            <div className="flex justify-center mb-2">
-                              <SizePreview size={size} selected={selectedSize?.label === size.label} />
+              {/* Hero */}
+              <div className="relative min-h-[300px]">
+                <div className="mx-auto max-w-[720px] text-center">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-5 py-2 text-sm font-bold text-[#5723d9]">
+                    <span>✦</span><span>AI-Powered Print Shop</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute -left-8 top-20 text-3xl text-[#5e31ed]">✦</span>
+                    <span className="absolute -right-8 top-4 text-3xl text-[#c43cf1]">✦</span>
+                    <span className="absolute -right-28 top-24 text-2xl text-[#ca3af0]">✦</span>
+                    <span className="absolute left-14 -top-3 text-3xl text-[#ff9718]">✦</span>
+                    <h1 className="text-[72px] font-extrabold leading-[0.94] tracking-[-0.045em] text-[#071633] xl:text-[86px]" style={{ fontFamily:'Syne, sans-serif' }}>
+                      <span className="block">Create It.</span>
+                      <span className="mt-1 block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent">Print It. Hang It.</span>
+                    </h1>
+                  </div>
+                  <p className="mx-auto mt-6 max-w-[680px] text-[19px] leading-8 text-[#48527a]">
+                    Describe any artwork. We generate it, print it, and ship it to your door.
+                  </p>
+                </div>
+
+                {/* Floating frame art — desktop only */}
+                <div className="absolute right-8 top-0 hidden xl:block">
+                  <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
+                    <div className="h-[245px] w-[195px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Product cards */}
+              <section className="-mt-1">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                  {PRODUCTS.map(product => (
+                    <div key={product.id}>
+                      <article
+                        onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
+                        className={`group relative overflow-hidden rounded-[18px] border bg-white p-3 shadow-[0_14px_35px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_20px_45px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
+                        <div className="overflow-hidden rounded-[12px] bg-[#efedf3]">
+                          {productImages[product.id] ? (
+                            <img src={productImages[product.id]} alt={product.name} className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+                          ) : (
+                            <div className="h-[220px] w-full flex items-center justify-center text-5xl bg-gray-50">{product.emoji}</div>
+                          )}
+                        </div>
+                        <div className="relative px-2 pb-2 pt-4">
+                          <h3 className="text-[21px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
+                          <p className="mt-1 min-h-[46px] max-w-[90%] text-[15px] leading-[1.45] text-[#747aa2]">{product.material}</p>
+                          <div className="mt-4 flex items-center justify-between">
+                            <div>
+                              <div className="text-xs text-[#747aa2]">from</div>
+                              <span className="text-[19px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
                             </div>
-                            <div className="font-bold text-sm" style={{ color: selectedSize?.label === size.label ? '#6d3df3' : '#444' }}>{size.label}</div>
-                            <div className="text-xs mt-0.5" style={{ color: selectedSize?.label === size.label ? '#6d3df3' : '#aaa' }}>{formatPrice(size.price)}</div>
-                          </button>
-                        ))}
-                      </div>
+                            <button type="button"
+                              className={`flex h-11 w-11 items-center justify-center rounded-full border text-2xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_10px_25px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>
+                              →
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+
+                      {/* Size selector */}
+                      {selectedProduct?.id === product.id && (
+                        <div className="mt-4">
+                          <div className="mb-3 flex items-end justify-between">
+                            <h2 className="text-[20px] font-extrabold">Select Size</h2>
+                            <p className="hidden text-sm text-[#7a7fa3] md:block">All sizes in inches</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {product.sizes.map(size => {
+                              const shape = getSizeShape(size.width, size.height)
+                              const sel = selectedSize?.label === size.label
+                              return (
+                                <button key={size.label} type="button" onClick={() => setSelectedSize(size)}
+                                  className={`group flex flex-col items-center justify-center rounded-[16px] border bg-white shadow-[0_12px_28px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-4 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
+                                  <div className="mb-3 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
+                                  <span className="text-[15px] font-extrabold">{size.label}</span>
+                                  <span className="mt-0.5 text-[16px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+              </section>
 
-            <div className="max-w-lg mx-auto">
-              <button onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
-                disabled={!selectedProduct || !selectedSize}
-                className="gradient-btn c2p-main-cta w-full rounded-2xl font-bold text-base tracking-widest uppercase flex items-center justify-center gap-3"
-                style={{ fontFamily: "'Syne', sans-serif" }}>
-                ✦ CONTINUE – DESIGN YOUR ART →
-              </button>
-            </div>
+              {/* CTA */}
+              <section className="mx-auto mt-8 max-w-[620px] text-center">
+                <button type="button"
+                  onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
+                  disabled={!selectedProduct || !selectedSize}
+                  className={primaryBtn}>
+                  ✦ CONTINUE — DESIGN YOUR ART →
+                </button>
+                <p className="mt-2 text-sm text-[#878cac]">
+                  {!selectedProduct ? 'Select a product to continue' : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
+                </p>
+              </section>
 
-            <div className="trust-row flex flex-wrap items-center justify-center gap-6 sm:gap-10 mt-10 text-sm">
-              {[
-                { icon: '✦', label: 'AI-Generated Art', sub: 'Unique to you' },
-                { icon: '🎖️', label: 'Premium Quality', sub: 'Museum grade prints' },
-                { icon: '🚚', label: 'Worldwide Shipping', sub: 'Fast & tracked' },
-                { icon: '🔒', label: 'Secure Checkout', sub: 'Safe & protected' },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2">
-                  <div className="trust-icon">{item.icon}</div>
-                  <div>
-                    <div className="font-semibold text-gray-700 text-xs">{item.label}</div>
-                    <div className="text-gray-400 text-xs">{item.sub}</div>
+              {/* Trust bar */}
+              <section className="mx-auto mt-8 grid max-w-[1260px] grid-cols-2 gap-y-5 pb-10 pt-2 lg:grid-cols-4">
+                {[
+                  { icon: '✦', title: 'AI-Generated Art', subtitle: 'Unique to you' },
+                  { icon: '🎖', title: 'Premium Quality', subtitle: 'Museum grade prints' },
+                  { icon: '🚚', title: 'Worldwide Shipping', subtitle: 'Fast & tracked' },
+                  { icon: '🔒', title: 'Secure Checkout', subtitle: 'Safe & protected' },
+                ].map((item, index) => (
+                  <div key={item.title} className={`flex items-center justify-center gap-4 px-6 ${index > 0 ? 'lg:border-l lg:border-[#dcddea]' : ''}`}>
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eee9ff] text-xl text-[#5d26ef]">{item.icon}</div>
+                    <div>
+                      <div className="text-[14px] font-extrabold">{item.title}</div>
+                      <div className="mt-0.5 text-[14px] text-[#73799e]">{item.subtitle}</div>
+                    </div>
                   </div>
+                ))}
+              </section>
+            </section>
+
+            {/* FAQ */}
+            <section className="bg-[#f4f3ff] border-t border-[#e5e6ef]">
+              <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14">
+                <h2 className="font-extrabold text-3xl mb-2 text-center" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Frequently Asked Questions</h2>
+                <p className="text-center text-[#747aa2] text-sm mb-8">Everything you need to know about Create2Print</p>
+                <div className="bg-white rounded-2xl border border-gray-100 px-6 divide-y divide-gray-50 shadow-sm">
+                  {FAQ_ITEMS.map(item => <FAQItem key={item.q} q={item.q} a={item.a} />)}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            </section>
+          </>
         )}
 
         {/* ── STEP 2: Create ── */}
         {step === 'create' && (
-          <div className="fade-up max-w-lg mx-auto">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
-            <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2"
-              style={{ background: 'rgba(109,61,243,0.04)', borderColor: 'rgba(109,61,243,0.15)' }}>
+
+            {/* Selected product badge */}
+            <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
                 {productImages[selectedProduct?.id || ''] ? (
                   <img src={productImages[selectedProduct?.id || '']} alt="" className="w-full h-full object-cover" />
@@ -512,46 +489,43 @@ export default function Home() {
                 )}
               </div>
               <div className="flex-1">
-                <div className="font-bold text-gray-800">{selectedProduct?.name}</div>
-                <div className="text-sm" style={{ color: '#6d3df3' }}>{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
+                <div className="font-extrabold text-[#071633]">{selectedProduct?.name}</div>
+                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
               </div>
-              <div className="font-bold text-lg" style={{ color: '#6d3df3' }}>{formatPrice(selectedSize?.price || 0)}</div>
+              <div className="font-extrabold text-lg text-[#5924f5]">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
 
-            <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
-              <button onClick={() => setCreateMode('generate')} className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: createMode === 'generate' ? 'white' : 'transparent', color: createMode === 'generate' ? '#6d3df3' : '#999', boxShadow: createMode === 'generate' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
-                ✦ AI Generate
-              </button>
-              <button onClick={() => setCreateMode('upload')} className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: createMode === 'upload' ? 'white' : 'transparent', color: createMode === 'upload' ? '#6d3df3' : '#999', boxShadow: createMode === 'upload' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
-                ↑ Upload Image
-              </button>
+            {/* Mode toggle */}
+            <div className="flex bg-[#f0eeff] rounded-2xl p-1 mb-6">
+              {(['generate','upload'] as const).map(mode => (
+                <button key={mode} onClick={() => setCreateMode(mode)}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
+                  {mode === 'generate' ? '✦ AI Generate' : '↑ Upload Image'}
+                </button>
+              ))}
             </div>
 
             {createMode === 'generate' && (
               <div className="space-y-5">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block">Describe your artwork</label>
+                  <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe your artwork</label>
                   <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
-                    rows={5} className="c2p-input resize-none leading-relaxed" />
+                    rows={5} className={inputClass + " resize-none leading-relaxed"} />
                 </div>
                 <div>
-                  <div className="text-xs text-gray-400 mb-2 font-medium">Quick ideas →</div>
+                  <div className="text-xs text-[#8a89a8] mb-2 font-semibold">Quick ideas →</div>
                   <div className="flex flex-wrap gap-2">
                     {['Anime girl in a cherry blossom forest, Studio Ghibli style','Retro synthwave city at night, neon lights','Abstract geometric mandala in gold and deep blue','Cute astronaut floating in colorful galaxy','Moody forest path in autumn, cinematic lighting'].map(s => (
                       <button key={s} onClick={() => setPrompt(s)}
-                        className="text-xs px-3 py-1.5 rounded-full border-2 transition-all font-medium"
-                        style={{ borderColor: '#e8e8f0', color: '#888', background: 'white' }}
-                        onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = '#6d3df3'; (e.target as HTMLElement).style.color = '#6d3df3' }}
-                        onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = '#e8e8f0'; (e.target as HTMLElement).style.color = '#888' }}>
+                        className="text-xs px-3 py-1.5 rounded-full border-2 border-[#e8e8f0] text-[#888] bg-white font-medium transition-all hover:border-[#6d3df3] hover:text-[#6d3df3]">
                         {s}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
+                <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
                   <div className="flex gap-1">
                     {[0,1,2].map(i => (
                       <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
@@ -560,40 +534,36 @@ export default function Home() {
                   <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining</span>
                 </div>
                 {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
-                <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0}
-                  className={primaryBtn} style={{ fontFamily: "'Syne', sans-serif" }}>
+                <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
                       Generating your artwork...
                     </span>
                   ) : '✦ Generate Artwork'}
                 </button>
-                {generating && <p className="text-center text-gray-400 text-xs pulse">Creating high-resolution artwork optimized for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") print... (~15 seconds)</p>}
+                {generating && <p className="text-center text-[#8a89a8] text-xs animate-pulse">Creating high-resolution artwork for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") print... (~15 seconds)</p>}
               </div>
             )}
 
             {createMode === 'upload' && (
               <div className="space-y-4">
-                <div className="rounded-2xl p-4 border-2" style={{ background: 'rgba(251,191,36,0.05)', borderColor: 'rgba(251,191,36,0.3)' }}>
+                <div className="rounded-2xl p-4 border-2 border-amber-200 bg-amber-50">
                   <div className="flex gap-3">
                     <span className="text-xl flex-shrink-0">⚠️</span>
                     <div>
-                      <div className="font-bold text-sm mb-1" style={{ color: '#92400e' }}>Aspect Ratio Notice</div>
-                      <div className="text-xs leading-relaxed" style={{ color: '#78350f' }}>{selectedProduct?.uploadAspectRatioNote}</div>
-                      <div className="text-xs mt-1 font-bold" style={{ color: '#92400e' }}>Recommended ratio for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}"): <strong>{selectedSize?.aspectRatio}</strong></div>
+                      <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
+                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.uploadAspectRatioNote}</div>
+                      <div className="text-xs mt-1 font-bold text-amber-900">Recommended for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
                     </div>
                   </div>
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed rounded-2xl p-12 text-center transition-all bg-white"
-                  style={{ borderColor: '#e0e0f0' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#6d3df3')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#e0e0f0')}>
+                  className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-12 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
                   <div className="text-5xl mb-3">📁</div>
-                  <div className="font-bold text-gray-700">Click to upload your image</div>
-                  <div className="text-gray-400 text-sm mt-1">PNG, JPG, WEBP supported</div>
+                  <div className="font-bold text-[#071633]">Click to upload your image</div>
+                  <div className="text-[#8a89a8] text-sm mt-1">PNG, JPG, WEBP supported</div>
                 </button>
               </div>
             )}
@@ -602,78 +572,57 @@ export default function Home() {
 
         {/* ── STEP 3: Preview ── */}
         {step === 'preview' && (
-          <div className="fade-up max-w-3xl mx-auto">
+          <div className="mx-auto max-w-3xl px-4 sm:px-8 py-10">
             <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
-
             <div className="text-center mb-6">
-              <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily: "'Syne', sans-serif", color: '#071633' }}>
+              <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>
                 {loadingMockup ? 'Generating preview...' : 'Looking great! 🎉'}
               </h2>
-              <p className="text-gray-400 text-sm">
-                {selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" wide × {selectedSize?.height}" tall)
-              </p>
+              <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Product frame mockup — bigger, clickable */}
             <div className="flex justify-center mb-4">
               {loadingMockup ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-24">
-                  <svg className="spinner w-10 h-10" style={{ color: '#6d3df3' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                  <p className="text-gray-400 text-sm pulse">Placing your design on the product...</p>
+                  <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                  <p className="text-[#8a89a8] text-sm animate-pulse">Placing your design on the product...</p>
                 </div>
               ) : activeImage && selectedProduct && selectedSize ? (
-                <ProductMockupFrame
-                  product={selectedProduct}
-                  size={selectedSize}
-                  imageUrl={mockupImage || activeImage}
-                  onClickImage={() => setLightboxOpen(true)}
-                />
+                <ProductMockupFrame product={selectedProduct} size={selectedSize} imageUrl={mockupImage || activeImage} onClickImage={() => setLightboxOpen(true)} />
               ) : null}
             </div>
 
-            {/* Click to zoom hint */}
             {!loadingMockup && activeImage && (
-              <p className="text-center text-xs text-gray-400 mb-4">
-                🔍 Click the image to view full size
-              </p>
+              <p className="text-center text-xs text-[#8a89a8] mb-4">🔍 Click the image to view full size</p>
             )}
 
-            {/* Dimensions */}
             {!loadingMockup && selectedSize && (
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold"
-                  style={{ background: 'rgba(109,61,243,0.07)', color: '#6d3df3', border: '1px solid rgba(109,61,243,0.15)' }}>
+              <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
                   📐 {selectedSize.width}" wide × {selectedSize.height}" tall
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold"
-                  style={{ background: 'rgba(109,61,243,0.07)', color: '#6d3df3', border: '1px solid rgba(109,61,243,0.15)' }}>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
                   {selectedSize.aspectRatio} ratio
                 </div>
               </div>
             )}
 
-            {/* Order summary */}
-            <div className="rounded-2xl p-5 mb-5 border-2" style={{ background: 'rgba(109,61,243,0.03)', borderColor: 'rgba(109,61,243,0.1)' }}>
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
-                <span>{selectedProduct?.name} · {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</span>
+            <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
+                <span>{selectedProduct?.name} · {selectedSize?.label}</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-500 mb-3 pb-3 border-b border-gray-100">
-                <span>Shipping (estimated)</span>
-                <span>~$4.99</span>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
+                <span>Shipping (estimated)</span><span>~$4.99</span>
               </div>
-              <div className="flex justify-between font-bold text-gray-900 text-lg">
+              <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Total</span>
-                <span style={{ background: 'linear-gradient(135deg,#6d3df3,#ff8c18)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  {formatPrice(total)}
-                </span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
               </div>
             </div>
 
-            <button onClick={() => setStep('shipping')} disabled={loadingMockup} className={primaryBtn} style={{ fontFamily: "'Syne', sans-serif" }}>
-              ✦ Ship This to Me →
-            </button>
-            <button onClick={() => setStep('create')} className="w-full text-center text-gray-400 text-sm mt-3 hover:text-gray-600 transition-colors py-2">
+            <button onClick={() => setStep('shipping')} disabled={loadingMockup} className={primaryBtn}>✦ Ship This to Me →</button>
+            <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
               Start over with a different design
             </button>
           </div>
@@ -681,65 +630,62 @@ export default function Home() {
 
         {/* ── STEP 4: Shipping ── */}
         {step === 'shipping' && (
-          <div className="fade-up max-w-lg mx-auto">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
             <button onClick={() => setStep('preview')} className={backBtn}>← Back to preview</button>
-            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily: "'Syne', sans-serif", color: '#071633' }}>Where should we send it?</h2>
-            <p className="text-gray-400 text-sm mb-6">Worldwide shipping available.</p>
+            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Where should we send it?</h2>
+            <p className="text-[#747aa2] text-sm mb-6">Worldwide shipping available.</p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className="c2p-input" placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} />
-                <input className="c2p-input" placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} />
+                <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} />
+                <input className={inputClass} placeholder="Last name *" value={shipping.lastName} onChange={e => setShipping(p => ({ ...p, lastName: e.target.value }))} />
               </div>
-              <input className="c2p-input" type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} />
-              <input className="c2p-input" placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} />
+              <input className={inputClass} type="email" placeholder="Email address *" value={shipping.email} onChange={e => setShipping(p => ({ ...p, email: e.target.value }))} />
+              <input className={inputClass} placeholder="Street address *" value={shipping.address1} onChange={e => setShipping(p => ({ ...p, address1: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
-                <input className="c2p-input" placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} />
-                <input className="c2p-input" placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} />
+                <input className={inputClass} placeholder="City *" value={shipping.city} onChange={e => setShipping(p => ({ ...p, city: e.target.value }))} />
+                <input className={inputClass} placeholder="State / Province" value={shipping.state} onChange={e => setShipping(p => ({ ...p, state: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className="c2p-input" placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} />
-                <select className="c2p-input" value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))}>
+                <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} />
+                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))}>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2" style={{ background: 'rgba(109,61,243,0.03)', borderColor: 'rgba(109,61,243,0.1)' }}>
-              <span className="text-sm text-gray-500">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
-              <span className="font-bold" style={{ background: 'linear-gradient(135deg,#6d3df3,#ff8c18)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{formatPrice(total)}</span>
+            <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+              <span className="text-sm text-[#747aa2]">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
+              <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
             </div>
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
             <div className="mt-5">
-              <button onClick={handleShippingContinue} className={primaryBtn} style={{ fontFamily: "'Syne', sans-serif" }}>
-                Continue to Payment →
-              </button>
+              <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
             </div>
           </div>
         )}
 
         {/* ── STEP 5: Payment ── */}
         {step === 'payment' && clientSecret && (
-          <div className="fade-up max-w-lg mx-auto">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10">
             <button onClick={() => setStep('shipping')} className={backBtn}>← Back</button>
-            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily: "'Syne', sans-serif", color: '#071633' }}>Secure Checkout</h2>
-            <p className="text-gray-400 text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
-            <div className="rounded-2xl p-5 mb-6 border-2" style={{ background: 'rgba(109,61,243,0.03)', borderColor: 'rgba(109,61,243,0.1)' }}>
-              <div className="flex justify-between text-sm text-gray-500 mb-2">
+            <h2 className="font-extrabold text-3xl mb-1" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Secure Checkout</h2>
+            <p className="text-[#747aa2] text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
+            <div className="rounded-2xl p-5 mb-6 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
                 <span>{selectedProduct?.name} · {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</span>
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-500 mb-3 pb-3 border-b border-gray-100">
-                <span>Shipping to {shipping.country}</span>
-                <span>~$4.99</span>
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
+                <span>Shipping to {shipping.country}</span><span>~$4.99</span>
               </div>
-              <div className="flex justify-between font-bold text-gray-900 text-lg">
+              <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Total due today</span>
-                <span style={{ background: 'linear-gradient(135deg,#6d3df3,#ff8c18)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{formatPrice(total)}</span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
               </div>
             </div>
-            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: '#6d3df3', borderRadius: '12px' } } }}>
+            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme:'stripe', variables:{ colorPrimary:'#6d3df3', borderRadius:'12px' } } }}>
               <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
             </Elements>
-            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-gray-300">
+            <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">
               <span>🔒 SSL encrypted</span>
               <span>💳 Powered by Stripe</span>
               <span>🖨️ Fulfilled by Printify</span>
@@ -749,52 +695,36 @@ export default function Home() {
 
         {/* ── STEP 6: Confirmation ── */}
         {step === 'confirm' && (
-          <div className="fade-up text-center py-12 max-w-lg mx-auto">
+          <div className="text-center py-16 max-w-lg mx-auto px-4">
             <div className="text-7xl mb-6">🎉</div>
-            <h2 className="font-extrabold text-4xl mb-2" style={{ fontFamily: "'Syne', sans-serif", color: '#071633' }}>Order Placed!</h2>
-            <p className="text-gray-500 mb-1">Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
-            <p className="text-gray-400 text-sm mb-8">Tracking info will be sent to <strong>{shipping.email}</strong></p>
+            <h2 className="font-extrabold text-4xl mb-2" style={{ fontFamily:'Syne, sans-serif', color:'#071633' }}>Order Placed!</h2>
+            <p className="text-[#747aa2] mb-1">Your {selectedProduct?.name} ({selectedSize?.label}) is being printed and will ship soon.</p>
+            <p className="text-[#8a89a8] text-sm mb-8">Tracking info will be sent to <strong>{shipping.email}</strong></p>
             {orderId && (
-              <div className="inline-block rounded-2xl px-6 py-4 mb-8 border-2" style={{ background: 'rgba(109,61,243,0.04)', borderColor: 'rgba(109,61,243,0.15)' }}>
-                <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">Order ID</div>
-                <div className="font-mono text-sm font-bold" style={{ background: 'linear-gradient(135deg,#6d3df3,#ff8c18)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{orderId}</div>
+              <div className="inline-block rounded-2xl px-6 py-4 mb-8 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+                <div className="text-xs text-[#8a89a8] mb-1 uppercase tracking-wider">Order ID</div>
+                <div className="font-mono text-sm font-bold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{orderId}</div>
               </div>
             )}
-            <button onClick={reset} className={`${primaryBtn} max-w-xs mx-auto`} style={{ fontFamily: "'Syne', sans-serif" }}>
-              ✦ Create Another Print
-            </button>
-            <p className="text-gray-300 text-xs mt-8">
-              Questions? <a href="mailto:support@create2print.ai" className="underline hover:text-gray-500">support@create2print.ai</a>
+            <button onClick={reset} className={primaryBtn + " max-w-xs mx-auto"}>✦ Create Another Print</button>
+            <p className="text-[#b0b5cc] text-xs mt-8">
+              Questions? <a href="mailto:support@create2print.store" className="underline hover:text-[#6d3df3]">support@create2print.store</a>
             </p>
           </div>
         )}
       </main>
 
-      {/* ── FAQ ── */}
-      {(step === 'product' || step === 'confirm') && (
-        <section style={{ background: '#f4f3ff' }} className="border-t border-gray-100 mt-4">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14">
-            <h2 className="font-extrabold text-3xl mb-2 text-center" style={{ fontFamily: "'Syne', sans-serif", color: '#071633' }}>
-              Frequently Asked Questions
-            </h2>
-            <p className="text-center text-gray-400 text-sm mb-8">Everything you need to know about Create2Print</p>
-            <div className="bg-white rounded-2xl border border-gray-100 px-6 divide-y divide-gray-50 shadow-sm">
-              {FAQ_ITEMS.map(item => <FAQItem key={item.q} q={item.q} a={item.a} />)}
-            </div>
+      {/* Footer */}
+      <footer className="border-t border-[#e5e6ef] bg-white/40">
+        <div className="mx-auto flex max-w-[1540px] items-center justify-between px-8 py-5 text-sm text-[#757b9f]">
+          <div className="flex items-center gap-5">
+            <img src="/logo.png" alt="Create2Print" className="h-8 object-contain" />
+            <span className="hidden sm:inline">Art for a brighter world.</span>
           </div>
-        </section>
-      )}
-
-      {/* ── Footer ── */}
-      <footer className="bg-white border-t border-gray-100 py-8 text-center text-xs text-gray-400">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <img src="/logo.png" alt="Create2Print" className="h-10 object-contain" />
-        </div>
-        <div className="mb-2 text-gray-300">Powered by Printify & Stripe</div>
-        <div className="flex items-center justify-center gap-4">
-          <a href="mailto:support@create2print.ai" className="hover:text-gray-600 transition-colors">support@create2print.ai</a>
-          <span>·</span>
-          <span>© 2025 Create2Print. All rights reserved.</span>
+          <div className="flex gap-7">
+            <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contact</a>
+            <span>© 2025 Create2Print</span>
+          </div>
         </div>
       </footer>
     </div>
