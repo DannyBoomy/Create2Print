@@ -447,7 +447,7 @@ export default function Home() {
   </span>
 
   <h1
-    className="font-extrabold leading-[0.94] tracking-[-0.045em]"
+    className="font-extrabold leading-[1.1] tracking-[-0.045em]"
     style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
   >
     <span
