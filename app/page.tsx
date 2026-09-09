@@ -67,132 +67,191 @@ function getSizeShape(width: number, height: number) {
   return { w: 32, h: 32 }
 }
 
-// ── Product Frame Mockup ───────────────────────────────────────────────
-// Frame BORDERS the image — never clips into it
-function ProductMockupFrame({ product, size, imageUrl, onClickImage }: { product: Product; size: Size; imageUrl: string; onClickImage: () => void }) {
-  const ratio = size.width / size.height
-  // Bigger image sizes
-  const maxH = 520; const maxW = 580
-  let imgW, imgH
-  if (ratio >= 1) { imgW = maxW; imgH = Math.round(maxW / ratio) }
-  else { imgH = maxH; imgW = Math.round(maxH * ratio) }
+// ── Mockup Carousel ────────────────────────────────────────────────────
+function MockupCarousel({ urls, onExpand }: { urls: string[]; onExpand: (url: string) => void }) {
+  const [idx, setIdx] = useState(0)
+  const touchStartX = useRef<number | null>(null)
 
-  const clickHint = (
-    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all flex items-center justify-center cursor-zoom-in group" onClick={onClickImage}>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 shadow-lg">🔍 Click to view full size</div>
+  const prev = () => setIdx(i => (i - 1 + urls.length) % urls.length)
+  const next = () => setIdx(i => (i + 1) % urls.length)
+
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 40) diff > 0 ? next() : prev()
+    touchStartX.current = null
+  }
+
+  if (!urls.length) return null
+  const url = urls[idx]
+
+  return (
+    <div className="flex flex-col items-center w-full">
+      <div className="relative flex items-center justify-center w-full"
+        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+
+        {/* Left arrow */}
+        {urls.length > 1 && (
+          <button onClick={prev}
+            className="absolute left-0 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition -translate-x-1 sm:translate-x-0"
+            style={{ fontSize: 14 }}>‹</button>
+        )}
+
+        {/* Main image — always fits, never clips */}
+        <div className="relative mx-8 sm:mx-10">
+          <img
+            src={url}
+            alt={`Mockup view ${idx + 1}`}
+            className="rounded-lg object-contain"
+            style={{
+              maxWidth: '100%',
+              maxHeight: 'min(60vw, 500px)',
+              width: 'auto',
+              height: 'auto',
+              display: 'block',
+            }}
+          />
+          {/* Small expand button in bottom-right corner */}
+          <button
+            onClick={() => onExpand(url)}
+            className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition"
+            title="View full size">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Right arrow */}
+        {urls.length > 1 && (
+          <button onClick={next}
+            className="absolute right-0 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition translate-x-1 sm:translate-x-0"
+            style={{ fontSize: 14 }}>›</button>
+        )}
+      </div>
+
+      {/* Dots */}
+      {urls.length > 1 && (
+        <div className="flex items-center gap-1.5 mt-3">
+          {urls.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)}
+              className="rounded-full transition-all"
+              style={{ width: i === idx ? 16 : 6, height: 6, background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : '#ddd9f7' }} />
+          ))}
+        </div>
+      )}
+
+      {urls.length > 1 && (
+        <p className="text-xs text-[#8a89a8] mt-1">{idx + 1} of {urls.length} views</p>
+      )}
     </div>
+  )
+}
+
+// ── Product Frame Mockup (flat image fallback) ─────────────────────────
+// Used only when Printify mockup hasn't loaded yet or failed.
+// Frame always borders the full image — never clips.
+function ProductMockupFrame({ product, size, imageUrl, onExpand }: { product: Product; size: Size; imageUrl: string; onExpand: () => void }) {
+  const ratio = size.width / size.height
+
+  // Responsive sizing — fits on any screen
+  const frameStyle: React.CSSProperties = {
+    maxWidth: '100%',
+    maxHeight: 'min(65vw, 500px)',
+    width: 'auto',
+    height: 'auto',
+    display: 'block',
+    objectFit: 'contain',
+  }
+
+  const expandBtn = (
+    <button onClick={onExpand}
+      className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition z-10"
+      title="View full size">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+      </svg>
+    </button>
   )
 
   if (product.id === 'matte-canvas-framed') {
-    // Frame wraps AROUND the image — image shows fully inside
-    const frameThickness = 24
     return (
-      <div className="flex flex-col items-center">
-        <div style={{
-          display: 'inline-block',
-          padding: frameThickness,
-          background: 'linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #111 100%)',
-          borderRadius: 6,
-          boxShadow: '0 2px 0 #555 inset, 0 -2px 0 #000 inset, 4px 0 8px rgba(0,0,0,0.4), -4px 0 8px rgba(0,0,0,0.4), 0 30px 60px rgba(0,0,0,0.35)',
-          position: 'relative',
-        }}>
-          {/* Inner mat/border effect */}
-          <div style={{
-            padding: 8,
-            background: '#f5f0eb',
-            display: 'inline-block',
-          }}>
-            <div style={{ position: 'relative', width: imgW, height: imgH }}>
-              <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
-              {clickHint}
+      <div className="flex flex-col items-center w-full">
+        <div className="relative inline-block" style={{ padding: 20, background: 'linear-gradient(145deg,#2a2a2a,#111)', borderRadius: 4, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+          <div style={{ padding: 8, background: '#f5f0eb' }}>
+            <div className="relative">
+              <img src={imageUrl} alt="Your design" style={frameStyle} />
+              {expandBtn}
             </div>
           </div>
         </div>
-        <div className="mt-3 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
+        <div className="mt-2 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
       </div>
     )
   }
 
   if (product.id === 'matte-canvas') {
-    // Canvas wrap — image shows fully, 3D edge effect on right/bottom
     return (
-      <div className="flex flex-col items-center">
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <div style={{ position: 'relative', width: imgW, height: imgH }}>
-            <img src={imageUrl} alt="Your design" style={{ width: imgW, height: imgH, objectFit: 'cover', display: 'block' }} />
-            {/* Gallery wrap edge effect — doesn't cover image */}
-            <div style={{ position: 'absolute', top: 0, right: -10, width: 10, height: imgH, background: 'linear-gradient(90deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45))', transform: 'skewY(-0.5deg)' }} />
-            <div style={{ position: 'absolute', bottom: -10, left: 0, width: imgW, height: 10, background: 'linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.4))', transform: 'skewX(-0.5deg)' }} />
-            {clickHint}
-          </div>
+      <div className="flex flex-col items-center w-full">
+        <div className="relative inline-block" style={{ boxShadow: '6px 6px 0 #d0cec8, 0 20px 50px rgba(0,0,0,0.15)' }}>
+          <img src={imageUrl} alt="Your design" style={frameStyle} />
+          <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,0.08)', pointerEvents: 'none' }} />
+          {expandBtn}
         </div>
-        <div className="mt-4 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label} · 1.25" deep</div>
+        <div className="mt-2 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label}</div>
       </div>
     )
   }
 
   if (product.id === 'wall-tapestry') {
-    // Tapestry — image shows fully with rod above
     return (
-      <div className="flex flex-col items-center">
-        {/* Rod */}
-        <div style={{
-          width: imgW + 40,
-          height: 14,
-          background: 'linear-gradient(180deg, #b8956a 0%, #8B7355 40%, #6b5a40 100%)',
-          borderRadius: 7,
-          boxShadow: '0 3px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2)',
-          marginBottom: 3,
-          position: 'relative',
-        }}>
-          {/* Rod end caps */}
-          <div style={{ position: 'absolute', left: -4, top: -3, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #c4a47a, #8B7355)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', right: -4, top: -3, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #c4a47a, #8B7355)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
+      <div className="flex flex-col items-center w-full">
+        <div style={{ width: '100%', maxWidth: 'min(65vw, 500px)', height: 12, background: 'linear-gradient(180deg,#b8956a,#8B7355)', borderRadius: 6, boxShadow: '0 2px 6px rgba(0,0,0,0.2)', marginBottom: 2, position: 'relative' }}>
+          <div style={{ position: 'absolute', left: -3, top: -3, width: 18, height: 18, borderRadius: '50%', background: '#c4a47a', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
+          <div style={{ position: 'absolute', right: -3, top: -3, width: 18, height: 18, borderRadius: '50%', background: '#c4a47a', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
         </div>
-        <div style={{ position: 'relative', width: imgW, height: imgH }}>
-          <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          {/* Fabric texture overlay */}
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.025) 3px, rgba(255,255,255,0.025) 4px)', pointerEvents: 'none' }} />
-          {clickHint}
+        <div className="relative inline-block" style={{ boxShadow: '0 15px 40px rgba(0,0,0,0.15)' }}>
+          <img src={imageUrl} alt="Your design" style={frameStyle} />
+          {expandBtn}
         </div>
-        <div className="mt-3 text-xs text-gray-400 font-medium">Woven tapestry · {size.label} · Rod pocket included</div>
+        <div className="mt-2 text-xs text-gray-400 font-medium">Woven tapestry · {size.label}</div>
       </div>
     )
   }
 
-  // Rolled poster — image shows fully, clean border
+  // Poster
   return (
-    <div className="flex flex-col items-center">
-      <div style={{ position: 'relative', width: imgW, height: imgH, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <img src={imageUrl} alt="Your design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        {clickHint}
+    <div className="flex flex-col items-center w-full">
+      <div className="relative inline-block" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 15px 45px rgba(0,0,0,0.12)' }}>
+        <img src={imageUrl} alt="Your design" style={frameStyle} />
+        {expandBtn}
       </div>
-      <div className="mt-3 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
+      <div className="mt-2 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
     </div>
   )
 }
 
-function Lightbox({ imageUrl, product, size, onClose }: { imageUrl: string; product: Product | null; size: Size | null; onClose: () => void }) {
+// ── Lightbox ───────────────────────────────────────────────────────────
+function Lightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" style={{ background:'rgba(0,0,0,0.93)' }} onClick={onClose}>
-      <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute -top-12 right-0 flex items-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors">
-          ✕ Close <span className="text-white/30 text-xs">(or press Esc)</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.93)' }} onClick={onClose}>
+      <div className="relative w-full max-w-5xl" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute -top-10 right-0 text-white/60 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
+          ✕ Close <span className="text-white/30 text-xs">(Esc)</span>
         </button>
-        <img src={imageUrl} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight:'85vh', objectFit:'contain' }} />
-        {product && size && (
-          <div className="text-center mt-4 text-white/40 text-xs">{product.name} · {size.label} ({size.width}" × {size.height}")</div>
-        )}
+        <img src={imageUrl} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight: '88vh', objectFit: 'contain' }} />
       </div>
     </div>
   )
 }
 
+// ── Stripe Checkout ────────────────────────────────────────────────────
 function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: number }) {
   const stripe = useStripe(); const elements = useElements()
   const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null)
@@ -219,6 +278,7 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
   )
 }
 
+// ── FAQ ────────────────────────────────────────────────────────────────
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -233,12 +293,13 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+// ── Step Bar ───────────────────────────────────────────────────────────
 function StepBar({ step }: { step: Step }) {
   const steps: { id: Step; label: string }[] = [
     { id: 'product', label: 'Product' }, { id: 'create', label: 'Create' },
     { id: 'preview', label: 'Preview' }, { id: 'shipping', label: 'Details' }, { id: 'payment', label: 'Pay' },
   ]
-  const allSteps = ['product','create','preview','shipping','payment','confirm']
+  const allSteps = ['product', 'create', 'preview', 'shipping', 'payment', 'confirm']
   const currentIdx = allSteps.indexOf(step)
   return (
     <div className="hidden lg:flex w-full max-w-[520px] items-start justify-between">
@@ -259,6 +320,7 @@ function StepBar({ step }: { step: Step }) {
   )
 }
 
+// ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -270,7 +332,7 @@ export default function Home() {
   const [promptSuggestions, setPromptSuggestions] = useState<string[]>(getRandomPrompts)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
-  const [mockupImage, setMockupImage] = useState<string | null>(null)
+  const [mockupUrls, setMockupUrls] = useState<string[]>([])
   const [printifyImageId, setPrintifyImageId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [modifying, setModifying] = useState(false)
@@ -278,14 +340,22 @@ export default function Home() {
   const [generationsLeft, setGenerationsLeft] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [modifyError, setModifyError] = useState<string | null>(null)
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [shipping, setShipping] = useState<ShippingInfo>({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const activeImage = generatedImage || uploadedImage
   const total = (selectedSize?.price || 0) + 499
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     PRODUCTS.forEach(async (product) => {
@@ -301,9 +371,13 @@ export default function Home() {
     if (!selectedProduct || !selectedSize) return
     setLoadingMockup(true)
     try {
-      const res = await fetch('/api/mockup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageUrl, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId }) })
+      const res = await fetch('/api/mockup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId })
+      })
       const data = await res.json()
-      if (data.mockupUrl) setMockupImage(data.mockupUrl)
+      if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
+      else if (data.mockupUrl) setMockupUrls([data.mockupUrl])
       if (data.printifyImageId) setPrintifyImageId(data.printifyImageId)
     } catch {}
     setLoadingMockup(false)
@@ -311,7 +385,7 @@ export default function Home() {
 
   const createPaymentIntent = async () => {
     try {
-      const res = await fetch('/api/payment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label }) })
+      const res = await fetch('/api/payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label }) })
       const data = await res.json()
       if (data.clientSecret) setClientSecret(data.clientSecret)
     } catch { setError('Failed to initialize payment. Please try again.') }
@@ -320,7 +394,7 @@ export default function Home() {
   const placeOrder = async () => {
     if (!printifyImageId || !selectedProduct || !selectedSize) return
     try {
-      const res = await fetch('/api/order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printifyImageId, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId, shipping }) })
+      const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ printifyImageId, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId, shipping }) })
       const data = await res.json()
       if (data.orderId) setOrderId(data.orderId)
     } catch {}
@@ -329,9 +403,9 @@ export default function Home() {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
-    setGenerating(true); setError(null); setGeneratedImage(null); setMockupImage(null)
+    setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
-      const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, width: selectedSize.width, height: selectedSize.height }) })
+      const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, width: selectedSize.width, height: selectedSize.height }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGeneratedImage(data.imageUrl)
@@ -344,10 +418,10 @@ export default function Home() {
 
   const handleModify = async () => {
     if (!modifyPrompt.trim() || !selectedSize || generationsLeft <= 0) return
-    setModifying(true); setModifyError(null); setMockupImage(null)
+    setModifying(true); setModifyError(null); setMockupUrls([])
     try {
       const combinedPrompt = `${prompt}. Modification: ${modifyPrompt}`
-      const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.width, height: selectedSize.height }) })
+      const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.width, height: selectedSize.height }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGeneratedImage(data.imageUrl)
@@ -363,7 +437,7 @@ export default function Home() {
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
-      setUploadedImage(dataUrl); setGeneratedImage(null); setMockupImage(null)
+      setUploadedImage(dataUrl); setGeneratedImage(null); setMockupUrls([])
       await generateMockup(dataUrl); setStep('preview')
     }
     reader.readAsDataURL(file)
@@ -375,38 +449,44 @@ export default function Home() {
     setError(null); await createPaymentIntent(); setStep('payment')
   }
 
+  // On mobile: auto-advance when product + size both selected
+  const handleSizeSelect = (size: Size) => {
+    setSelectedSize(size)
+    if (isMobile && selectedProduct) {
+      setTimeout(() => setStep('create'), 120)
+    }
+  }
+
   const reset = () => {
     setStep('product'); setSelectedProduct(null); setSelectedSize(null)
     setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
-    setMockupImage(null); setPrintifyImageId(null); setClientSecret(null)
-    setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
-    setShipping({ firstName:'',lastName:'',email:'',address1:'',city:'',state:'',zip:'',country:'US' })
+    setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null)
+    setOrderId(null); setError(null); setModifyError(null); setLightboxUrl(null)
+    setShipping({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
     setPromptSuggestions(getRandomPrompts())
   }
 
   const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
-  const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-8 font-semibold"
+  const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-6 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
   return (
-    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily:"'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {lightboxOpen && (mockupImage || activeImage) && (
-        <Lightbox imageUrl={mockupImage || activeImage || ''} product={selectedProduct} size={selectedSize} onClose={() => setLightboxOpen(false)} />
+      {lightboxUrl && (
+        <Lightbox imageUrl={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       )}
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1540px] items-center justify-between px-4 sm:px-8">
-          <div className="flex min-w-[120px] sm:min-w-[200px] items-center">
-            <button onClick={reset}>
-              <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
-            </button>
-          </div>
+          <button onClick={reset} className="flex items-center flex-shrink-0">
+            <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
+          </button>
           <div className="hidden flex-1 justify-center lg:flex">
             <StepBar step={step} />
           </div>
-          <div className="flex min-w-[120px] sm:min-w-[200px] justify-end">
+          <div className="flex justify-end">
             <div className="flex items-center gap-2 rounded-full bg-[#f0ecff] px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#4f24d8]">
               <span>🌐</span>
               <span className="hidden sm:inline">Worldwide Shipping</span>
@@ -421,69 +501,56 @@ export default function Home() {
         {/* ── STEP 1: Product ── */}
         {step === 'product' && (
           <>
-            <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[300px] sm:w-[390px] opacity-90 overflow-hidden">
-              <div className="absolute -left-24 top-14 h-28 w-[320px] sm:w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
-              <div className="absolute -left-32 top-32 h-24 w-[350px] sm:w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
-              <div className="absolute -left-24 top-48 h-24 w-[320px] sm:w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
+            {/* Paint stroke — desktop only */}
+            <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[300px] sm:w-[390px] opacity-90 overflow-hidden hidden sm:block">
+              <div className="absolute -left-24 top-14 h-28 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
+              <div className="absolute -left-32 top-32 h-24 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
+              <div className="absolute -left-24 top-48 h-24 w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
             </div>
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
-              <div className="relative min-h-[240px] sm:min-h-[300px]">
-                <div className="mx-auto max-w-[720px] text-center">
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
-                    <span>✦</span><span>AI-Powered Print Shop</span>
-                  </div>
-                  <div className="relative pb-[45px]">
-  <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">
-    ✦
-  </span>
 
-  <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">
-    ✦
-  </span>
+              {/* Hero — mobile: just logo + subtitle. Desktop: full headline */}
+              <div className="relative mb-8 sm:mb-6 sm:min-h-[300px]">
 
-  <span className="absolute left-10 -top-3 -bottom-20 text-xl sm:text-3xl text-[#ff9718]">
-    ✦
-  </span>
-
-  <h1
-    className="font-extrabold leading-[1.15] tracking-[-0.045em]"
-    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-  >
-    <span
-      className="block text-[#071633]"
-      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
-    >
-      Create It.
-    </span>
-
-    <span
-      className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent"
-      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
-    >
-      Print It.
-    </span>
-
-    <span
-      className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent"
-      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
-    >
-      Hang It.
-    </span>
-  </h1>
-</div>
-                  <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]">
+                {/* Mobile hero */}
+                <div className="flex flex-col items-center text-center sm:hidden pt-2 pb-4">
+                  <img src="/logo.png" alt="Create2Print" className="h-20 w-auto object-contain mb-4" />
+                  <p className="text-[15px] leading-7 text-[#48527a] max-w-[300px]">
                     Describe any artwork. We generate it, print it, and ship it to your door.
                   </p>
                 </div>
-                <div className="absolute right-8 top-0 hidden xl:block">
-                  <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
-                    <div className="h-[220px] w-[175px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
+
+                {/* Desktop hero */}
+                <div className="hidden sm:block">
+                  <div className="mx-auto max-w-[720px] text-center">
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
+                      <span>✦</span><span>AI-Powered Print Shop</span>
+                    </div>
+                    <div className="relative pb-4">
+                      <span className="absolute -left-8 top-20 text-3xl text-[#5e31ed]">✦</span>
+                      <span className="absolute -right-8 top-4 text-3xl text-[#c43cf1]">✦</span>
+                      <span className="absolute left-10 -top-3 text-3xl text-[#ff9718]">✦</span>
+                      <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em] pb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                        <span className="block text-[#071633]" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Create It.</span>
+                        <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Print It.</span>
+                        <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
+                      </h1>
+                    </div>
+                    <p className="mx-auto mt-2 max-w-[580px] text-[17px] leading-7 text-[#48527a]">
+                      Describe any artwork. We generate it, print it, and ship it to your door.
+                    </p>
+                  </div>
+                  <div className="absolute right-8 top-0 hidden xl:block">
+                    <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
+                      <div className="h-[220px] w-[175px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <section className="mt-2 sm:mt-0">
+              {/* Product cards */}
+              <section>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {PRODUCTS.map(product => (
                     <div key={product.id}>
@@ -504,23 +571,25 @@ export default function Home() {
                               <div className="text-[11px] text-[#747aa2]">from</div>
                               <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
                             </div>
-                            <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white shadow-[0_8px_20px_rgba(94,35,245,0.30)]' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
+                            <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
                           </div>
                         </div>
                       </article>
 
+                      {/* Size selector */}
                       {selectedProduct?.id === product.id && (
                         <div className="mt-3">
                           <div className="mb-2 flex items-end justify-between">
                             <h2 className="text-[17px] font-extrabold">Select Size</h2>
-                            <p className="hidden text-xs text-[#7a7fa3] md:block">All sizes in inches</p>
+                            {isMobile && <p className="text-xs text-[#6d3df3] font-semibold">Tap a size to continue →</p>}
+                            {!isMobile && <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
                             {product.sizes.map(size => {
                               const shape = getSizeShape(size.width, size.height)
                               const sel = selectedSize?.label === size.label
                               return (
-                                <button key={size.label} type="button" onClick={() => setSelectedSize(size)}
+                                <button key={size.label} type="button" onClick={() => handleSizeSelect(size)}
                                   className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
                                   <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
                                   <span className="text-[13px] font-extrabold">{size.label}</span>
@@ -536,7 +605,8 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="mx-auto mt-7 max-w-[580px] text-center">
+              {/* CTA — desktop only */}
+              <section className="hidden sm:block mx-auto mt-7 max-w-[580px] text-center">
                 <button type="button" onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
                   disabled={!selectedProduct || !selectedSize} className={primaryBtn}>
                   ✦ CONTINUE — DESIGN YOUR ART →
@@ -546,6 +616,7 @@ export default function Home() {
                 </p>
               </section>
 
+              {/* Trust bar */}
               <section className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
                 {[
                   { icon: '✦', title: 'AI-Generated Art', subtitle: 'Unique to you' },
@@ -564,6 +635,7 @@ export default function Home() {
               </section>
             </section>
 
+            {/* FAQ */}
             <section className="bg-[#f4f3ff] border-t border-[#e5e6ef]">
               <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
                 <h2 className="font-extrabold text-2xl sm:text-3xl mb-2 text-center text-[#071633]">Frequently Asked Questions</h2>
@@ -578,8 +650,9 @@ export default function Home() {
 
         {/* ── STEP 2: Create ── */}
         {step === 'create' && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-8 w-full">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
+
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
                 {productImages[selectedProduct?.id || ''] ? (
@@ -590,13 +663,13 @@ export default function Home() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
+                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</div>
               </div>
               <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
 
             <div className="flex bg-[#f0eeff] rounded-2xl p-1 mb-6">
-              {(['generate','upload'] as const).map(mode => (
+              {(['generate', 'upload'] as const).map(mode => (
                 <button key={mode} onClick={() => setCreateMode(mode)}
                   className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
                   style={{ background: createMode === mode ? 'white' : 'transparent', color: createMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: createMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
@@ -619,8 +692,7 @@ export default function Home() {
                     <button onClick={() => setPromptSuggestions(getRandomPrompts())}
                       className="text-xs text-[#6d3df3] font-semibold hover:text-[#5924f5] transition-colors flex items-center gap-1">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M23 4v6h-6M1 20v-6h6"/>
-                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                        <path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
                       </svg>
                       Refresh
                     </button>
@@ -636,7 +708,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
                   <div className="flex gap-1">
-                    {[0,1,2].map(i => (
+                    {[0, 1, 2].map(i => (
                       <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
                     ))}
                   </div>
@@ -646,7 +718,7 @@ export default function Home() {
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" /></svg>
                       Generating your artwork...
                     </span>
                   ) : '✦ Generate Artwork'}
@@ -655,12 +727,11 @@ export default function Home() {
                   <div className="space-y-3 py-1">
                     <div className="flex items-center gap-3">
                       <svg className="animate-spin w-5 h-5 flex-shrink-0 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/>
-                        <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.2" /><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
                       </svg>
                       <div className="flex-1 bg-[#e8e4ff] rounded-full h-4 overflow-hidden shadow-inner">
                         <div className="h-4 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] shadow-[0_0_12px_rgba(239,72,167,0.5)]"
-                          style={{ animation:'progress 28s ease-in-out forwards' }} />
+                          style={{ animation: 'progress 28s ease-in-out forwards' }} />
                       </div>
                       <span className="text-xs font-bold text-[#6d3df3] flex-shrink-0">~30s</span>
                     </div>
@@ -698,32 +769,40 @@ export default function Home() {
 
         {/* ── STEP 3: Preview ── */}
         {step === 'preview' && (
-          <div className="mx-auto max-w-4xl px-4 sm:px-8 py-10 w-full">
-            <button onClick={() => setStep('create')} className={backBtn}>← Try again</button>
-            <div className="text-center mb-8">
+          <div className="mx-auto max-w-4xl px-4 sm:px-8 py-8 w-full">
+            <button onClick={() => setStep('create')} className={backBtn}>← Back to create</button>
+            <div className="text-center mb-6">
               <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">
                 {loadingMockup || modifying ? 'Generating...' : 'Looking great! 🎉'}
               </h2>
               <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Product mockup — no shadow, bigger, frame borders image correctly */}
-            <div className="flex justify-center mb-6">
+            {/* Mockup carousel or loading */}
+            <div className="flex justify-center mb-4">
               {loadingMockup || modifying ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                <div className="flex flex-col items-center justify-center gap-3 py-16">
+                  <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" />
+                  </svg>
                   <p className="text-[#8a89a8] text-sm animate-pulse">
                     {modifying ? 'Applying your modifications...' : 'Placing your design on the product...'}
                   </p>
                 </div>
+              ) : mockupUrls.length > 0 ? (
+                <div className="w-full">
+                  <MockupCarousel urls={mockupUrls} onExpand={(url) => setLightboxUrl(url)} />
+                </div>
               ) : activeImage && selectedProduct && selectedSize ? (
-                <ProductMockupFrame product={selectedProduct} size={selectedSize} imageUrl={mockupImage || activeImage} onClickImage={() => setLightboxOpen(true)} />
+                // Fallback to flat image with frame if no mockup
+                <ProductMockupFrame
+                  product={selectedProduct}
+                  size={selectedSize}
+                  imageUrl={activeImage}
+                  onExpand={() => setLightboxUrl(activeImage)}
+                />
               ) : null}
             </div>
-
-            {!loadingMockup && !modifying && activeImage && (
-              <p className="text-center text-xs text-[#8a89a8] mb-4">🔍 Click the image to view full size</p>
-            )}
 
             {!loadingMockup && !modifying && selectedSize && (
               <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
@@ -754,7 +833,7 @@ export default function Home() {
                   className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-6 py-3 text-sm font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {modifying ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" /></svg>
                       Applying modifications...
                     </span>
                   ) : generationsLeft <= 0 ? 'No generations remaining' : '✦ Apply Modifications'}
@@ -788,7 +867,7 @@ export default function Home() {
 
         {/* ── STEP 4: Shipping ── */}
         {step === 'shipping' && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-8 w-full">
             <button onClick={() => setStep('preview')} className={backBtn}>← Back to preview</button>
             <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Where should we send it?</h2>
             <p className="text-[#747aa2] text-sm mb-6">Worldwide shipping available.</p>
@@ -823,8 +902,8 @@ export default function Home() {
 
         {/* ── STEP 5: Payment ── */}
         {step === 'payment' && clientSecret && (
-          <div className="mx-auto max-w-lg px-4 sm:px-8 py-10 w-full">
-            <button onClick={() => setStep('shipping')} className={backBtn}>← Back</button>
+          <div className="mx-auto max-w-lg px-4 sm:px-8 py-8 w-full">
+            <button onClick={() => setStep('shipping')} className={backBtn}>← Back to shipping</button>
             <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Secure Checkout</h2>
             <p className="text-[#747aa2] text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
             <div className="rounded-2xl p-5 mb-6 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
@@ -840,7 +919,7 @@ export default function Home() {
                 <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
               </div>
             </div>
-            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme:'stripe', variables:{ colorPrimary:'#6d3df3', borderRadius:'12px' } } }}>
+            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: '#6d3df3', borderRadius: '12px' } } }}>
               <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
             </Elements>
             <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">

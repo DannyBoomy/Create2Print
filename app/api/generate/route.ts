@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const size = getOpenAIImageSize(width, height)
 
     const response = await openai.images.generate({
-      model: 'gpt-image-2',
+      model: 'gpt-image-2.5-sunburst',
       prompt: prompt,
       n: 1,
       size,
