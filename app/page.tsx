@@ -438,9 +438,9 @@ export default function Home() {
                     <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">✦</span>
                     <span className="absolute left-10 -top-3 text-xl sm:text-3xl text-[#ff9718]">✦</span>
                     <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
-                      <span className="block text-[#071633]" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Create It.</span>
-                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Print It.</span>
-                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
+                      <span className="block text-[#071633]" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Create It.</span>
+                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Print It.</span>
+                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Hang It.</span>
                     </h1>
                   </div>
                   <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]">
