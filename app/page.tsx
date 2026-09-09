@@ -436,7 +436,7 @@ export default function Home() {
                   <div className="relative">
                     <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">✦</span>
                     <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">✦</span>
-                    <span className="absolute left-10 -top-3 text-xl sm:text-3xl text-[#ff9718]">✦</span>
+                    <span className="absolute left-10 -top-3 bottom-20 text-xl sm:text-3xl text-[#ff9718]">✦</span>
                     <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
                       <span className="block text-[#071633]" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Create It.</span>
                       <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Print It.</span>
