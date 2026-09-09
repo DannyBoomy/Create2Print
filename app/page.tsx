@@ -433,16 +433,45 @@ export default function Home() {
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
                     <span>✦</span><span>AI-Powered Print Shop</span>
                   </div>
-                  <div className="relative">
-                    <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">✦</span>
-                    <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">✦</span>
-                    <span className="absolute left-10 -top-3 -bottom-20 text-xl sm:text-3xl text-[#ff9718]">✦</span>
-                    <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em]" style={{ fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
-                      <span className="block text-[#071633]" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Create It.</span>
-                      <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Print It.</span>
-                      <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize:'clamp(27px, 4.125vw, 51px)' }}>Hang It.</span>
-                    </h1>
-                  </div>
+                  <div className="relative pb-[15px]">
+  <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">
+    ✦
+  </span>
+
+  <span className="absolute -right-4 sm:-right-8 top-4 text-2xl sm:text-3xl text-[#c43cf1]">
+    ✦
+  </span>
+
+  <span className="absolute left-10 -top-3 -bottom-20 text-xl sm:text-3xl text-[#ff9718]">
+    ✦
+  </span>
+
+  <h1
+    className="font-extrabold leading-[0.94] tracking-[-0.045em]"
+    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+  >
+    <span
+      className="block text-[#071633]"
+      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
+    >
+      Create It.
+    </span>
+
+    <span
+      className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent"
+      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
+    >
+      Print It.
+    </span>
+
+    <span
+      className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent"
+      style={{ fontSize: "clamp(27px, 4.125vw, 51px)" }}
+    >
+      Hang It.
+    </span>
+  </h1>
+</div>
                   <p className="mx-auto mt-4 sm:mt-6 max-w-[580px] text-[15px] sm:text-[18px] leading-7 text-[#48527a]">
                     Describe any artwork. We generate it, print it, and ship it to your door.
                   </p>
