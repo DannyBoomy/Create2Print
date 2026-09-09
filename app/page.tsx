@@ -433,7 +433,7 @@ export default function Home() {
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
                     <span>✦</span><span>AI-Powered Print Shop</span>
                   </div>
-                  <div className="relative pb-[30px]">
+                  <div className="relative pb-[45px]">
   <span className="absolute -left-4 sm:-left-8 top-20 text-2xl sm:text-3xl text-[#5e31ed]">
     ✦
   </span>
@@ -447,7 +447,7 @@ export default function Home() {
   </span>
 
   <h1
-    className="font-extrabold leading-[1.1] tracking-[-0.045em]"
+    className="font-extrabold leading-[1.15] tracking-[-0.045em]"
     style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
   >
     <span
