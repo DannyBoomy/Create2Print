@@ -5,10 +5,6 @@ const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
 const SHOP_ID = process.env.PRINTIFY_SHOP_ID
 
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 export async function POST(req: NextRequest) {
   let productId: string | null = null
 
@@ -45,56 +41,31 @@ export async function POST(req: NextRequest) {
     )
 
     productId = productRes.data?.id
+    if (!productId) throw new Error('Product creation failed')
 
-    // Log what Printify returned immediately
-    const immediateImages = productRes.data?.images || []
-    console.log(`Printify immediate images count: ${immediateImages.length}`)
-    console.log('Image positions:', immediateImages.map((img: any) => img.position))
+    // Log the full images array from creation response
+    const allImages = productRes.data?.images || []
+    console.log('=== PRINTIFY MOCKUP DEBUG ===')
+    console.log('Total images returned:', allImages.length)
+    allImages.forEach((img: any, i: number) => {
+      console.log(`Image ${i + 1}: position=${img.position}, is_default=${img.is_default}`)
+      console.log(`  src: ${img.src}`)
+    })
 
-    // Step 3: Poll for mockups — wait up to 20 seconds
-    let mockupUrls: string[] = []
-    
-    // First try immediate images
-    if (immediateImages.length > 0) {
-      mockupUrls = immediateImages
-        .filter((img: any) => img?.src)
-        .map((img: any) => img.src as string)
-    }
+    // Get all unique mockup URLs immediately — no polling needed
+    const mockupUrls: string[] = allImages
+      .filter((img: any) => img?.src)
+      .map((img: any) => img.src as string)
+      .filter((url: string, idx: number, arr: string[]) => arr.indexOf(url) === idx)
 
-    // If only 1, poll for more
-    if (mockupUrls.length <= 1 && productId) {
-      for (let attempt = 0; attempt < 8; attempt++) {
-        await sleep(2500)
-        try {
-          const fetchRes = await axios.get(
-            `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
-            { headers: { Authorization: `Bearer ${API_KEY}` } }
-          )
-          const images = fetchRes.data?.images || []
-          console.log(`Poll ${attempt + 1}: ${images.length} images`)
-          
-          if (images.length > mockupUrls.length) {
-            mockupUrls = images
-              .filter((img: any) => img?.src)
-              .map((img: any) => img.src as string)
-          }
-          
-          if (mockupUrls.length > 1) break
-        } catch (pollErr) {
-          console.log('Poll error:', pollErr)
-        }
-      }
-    }
+    console.log('Unique mockup URLs:', mockupUrls.length)
+    console.log('============================')
 
-    // Step 4: Clean up temp product
-    if (productId) {
-      await axios.delete(
-        `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
-        { headers: { Authorization: `Bearer ${API_KEY}` } }
-      ).catch(() => {})
-    }
-
-    console.log(`Final mockup count: ${mockupUrls.length}`)
+    // Clean up temp product
+    await axios.delete(
+      `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
+      { headers: { Authorization: `Bearer ${API_KEY}` } }
+    ).catch(() => {})
 
     return NextResponse.json({
       mockupUrl: mockupUrls[0] || null,
