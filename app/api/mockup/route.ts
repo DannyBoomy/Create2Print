@@ -11,6 +11,12 @@ export async function POST(req: NextRequest) {
   try {
     const { imageUrl, blueprintId, printProviderId, variantId } = await req.json()
 
+    console.log('=== MOCKUP REQUEST ===')
+    console.log('blueprintId:', blueprintId)
+    console.log('printProviderId:', printProviderId)
+    console.log('variantId:', variantId)
+    console.log('imageUrl:', imageUrl?.substring(0, 80))
+
     // Step 1: Upload image to Printify
     const uploadRes = await axios.post(
       `${PRINTIFY_API}/uploads/images.json`,
@@ -19,47 +25,53 @@ export async function POST(req: NextRequest) {
     )
 
     const printifyImageId = uploadRes.data.id
+    console.log('Uploaded image ID:', printifyImageId)
     if (!printifyImageId) throw new Error('Image upload failed')
 
     // Step 2: Create temporary product
-    const productRes = await axios.post(
-      `${PRINTIFY_API}/shops/${SHOP_ID}/products.json`,
-      {
-        title: 'Create2Print Preview',
-        blueprint_id: blueprintId,
-        print_provider_id: printProviderId,
-        variants: [{ id: variantId, price: 1000, is_enabled: true }],
-        print_areas: [{
-          variant_ids: [variantId],
-          placeholders: [{
-            position: 'front',
-            images: [{ id: printifyImageId, x: 0.5, y: 0.5, scale: 1, angle: 0 }]
-          }]
+    const productPayload = {
+      title: 'Create2Print Preview',
+      blueprint_id: Number(blueprintId),
+      print_provider_id: Number(printProviderId),
+      variants: [{ id: Number(variantId), price: 1000, is_enabled: true }],
+      print_areas: [{
+        variant_ids: [Number(variantId)],
+        placeholders: [{
+          position: 'front',
+          images: [{ id: printifyImageId, x: 0.5, y: 0.5, scale: 1, angle: 0 }]
         }]
-      },
-      { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
-    )
+      }]
+    }
+
+    console.log('Product payload:', JSON.stringify(productPayload, null, 2))
+
+    let productRes
+    try {
+      productRes = await axios.post(
+        `${PRINTIFY_API}/shops/${SHOP_ID}/products.json`,
+        productPayload,
+        { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
+      )
+    } catch (createErr: any) {
+      console.error('Product creation error:', JSON.stringify(createErr?.response?.data, null, 2))
+      throw createErr
+    }
 
     productId = productRes.data?.id
-    if (!productId) throw new Error('Product creation failed')
+    if (!productId) throw new Error('Product creation failed — no ID returned')
 
-    // Log the full images array from creation response
     const allImages = productRes.data?.images || []
     console.log('=== PRINTIFY MOCKUP DEBUG ===')
     console.log('Total images returned:', allImages.length)
     allImages.forEach((img: any, i: number) => {
-      console.log(`Image ${i + 1}: position=${img.position}, is_default=${img.is_default}`)
-      console.log(`  src: ${img.src}`)
+      console.log(`Image ${i + 1}: position=${img.position}, is_default=${img.is_default}, src=${img.src}`)
     })
+    console.log('============================')
 
-    // Get all unique mockup URLs immediately — no polling needed
     const mockupUrls: string[] = allImages
       .filter((img: any) => img?.src)
       .map((img: any) => img.src as string)
       .filter((url: string, idx: number, arr: string[]) => arr.indexOf(url) === idx)
-
-    console.log('Unique mockup URLs:', mockupUrls.length)
-    console.log('============================')
 
     // Clean up temp product
     await axios.delete(
@@ -80,7 +92,7 @@ export async function POST(req: NextRequest) {
         { headers: { Authorization: `Bearer ${API_KEY}` } }
       ).catch(() => {})
     }
-    console.error('Mockup error:', error?.response?.data || error?.message)
+    console.error('Mockup error:', JSON.stringify(error?.response?.data || error?.message, null, 2))
     return NextResponse.json({ mockupUrl: null, mockupUrls: [], printifyImageId: null })
   }
 }
