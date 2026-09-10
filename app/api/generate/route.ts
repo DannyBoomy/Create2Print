@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       n: 1,
       size,
       quality: 'high',
+      response_format: 'url',
     })
 
     const imageUrl = response.data?.[0]?.url
