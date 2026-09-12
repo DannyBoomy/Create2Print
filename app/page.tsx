@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { PRODUCTS, Product, Size, formatPrice } from '@/lib/products'
+import { PRODUCTS, Product, Size, formatPrice, getOpenAIImageSize } from '@/lib/products'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -18,14 +18,14 @@ const COUNTRIES = ['US','GB','CA','AU','DE','FR','NL','SE','NO','DK','FI','IT','
 
 const FAQ_ITEMS = [
   { q: 'How does Create2Print work?', a: 'Simply describe your idea, choose your product and size, and we generate a unique piece of AI artwork. Once you love it, check out and we handle the rest — printing and shipping directly to your door. The whole process takes under 5 minutes.' },
-  { q: 'How long does shipping take?', a: 'Most orders are printed and shipped within 3–5 business days. Delivery typically takes an additional 3–7 business days depending on your location. You\'ll receive a tracking number via email as soon as your order ships.' },
-  { q: 'Is my payment secure?', a: 'Yes. All payments are processed through Stripe, one of the world\'s most trusted payment processors. We never see or store your credit card information. Your transaction is fully encrypted end to end.' },
-  { q: 'Can I upload my own image?', a: 'Yes — you can upload your own AI-generated or original artwork instead of generating one. We\'ll show you the recommended aspect ratio for your selected product so your image fits perfectly.' },
+  { q: 'How long does shipping take?', a: "Most orders are printed and shipped within 3–5 business days. Delivery typically takes an additional 3–7 business days depending on your location. You'll receive a tracking number via email as soon as your order ships." },
+  { q: 'Is my payment secure?', a: "Yes. All payments are processed through Stripe, one of the world's most trusted payment processors. We never see or store your credit card information. Your transaction is fully encrypted end to end." },
+  { q: 'Can I upload my own image?', a: "Yes — you can upload your own AI-generated or original artwork instead of generating one. We'll show you the recommended aspect ratio for your selected product so your image fits perfectly." },
   { q: 'How many images can I generate?', a: 'Every visitor gets 3 free generations per session. Each generation produces one high-quality image using the latest AI model.' },
-  { q: 'Will my image look good printed at large sizes?', a: 'Yes. Every image is automatically generated at the highest available resolution and optimized for your selected product size before your order is placed.' },
-  { q: 'Who prints and ships my order?', a: 'Create2Print is proudly partnered with Printify, a globally trusted print-on-demand network with production facilities worldwide. Your order is printed on professional-grade equipment and shipped directly to you.' },
+  { q: 'Will my image look good printed at large sizes?', a: 'Yes. Every image is generated at the exact resolution and aspect ratio required by your selected product, ensuring a perfect fit with no gaps or cropping.' },
+  { q: 'Who prints and ships my order?', a: "Create2Print is proudly partnered with Printify, a globally trusted print-on-demand network with production facilities worldwide. Your order is printed on professional-grade equipment and shipped directly to you." },
   { q: 'Can I order from outside the US?', a: 'Yes — we ship worldwide to most countries through our Printify print partners. Simply select your country during checkout.' },
-  { q: 'What if my order gets lost in the mail?', a: 'Contact us at support@create2print.store. We\'ll investigate with the carrier and either reship your order or issue a full refund.' },
+  { q: 'What if my order gets lost in the mail?', a: "Contact us at support@create2print.store. We'll investigate with the carrier and either reship your order or issue a full refund." },
 ]
 
 const ALL_PROMPTS = [
@@ -56,6 +56,8 @@ const ALL_PROMPTS = [
   'A futuristic spaceship above an alien planet, epic sci-fi',
 ]
 
+const GENERATION_STORAGE_KEY = 'c2p_generations'
+
 function getRandomPrompts() {
   return [...ALL_PROMPTS].sort(() => Math.random() - 0.5).slice(0, 5)
 }
@@ -67,185 +69,196 @@ function getSizeShape(width: number, height: number) {
   return { w: 32, h: 32 }
 }
 
+function loadGenerationsLeft(): number {
+  try {
+    const stored = localStorage.getItem(GENERATION_STORAGE_KEY)
+    if (!stored) return 3
+    const { count, timestamp } = JSON.parse(stored)
+    const now = Date.now()
+    if (now - timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(GENERATION_STORAGE_KEY)
+      return 3
+    }
+    return Math.max(0, 3 - count)
+  } catch { return 3 }
+}
+
+function saveGenerationUsed() {
+  try {
+    const stored = localStorage.getItem(GENERATION_STORAGE_KEY)
+    if (stored) {
+      const { count, timestamp } = JSON.parse(stored)
+      const now = Date.now()
+      if (now - timestamp > 24 * 60 * 60 * 1000) {
+        localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: 1, timestamp: now }))
+      } else {
+        localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: count + 1, timestamp }))
+      }
+    } else {
+      localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: 1, timestamp: Date.now() }))
+    }
+  } catch {}
+}
+
 // ── Mockup Carousel ────────────────────────────────────────────────────
-function MockupCarousel({ urls, onExpand }: { urls: string[]; onExpand: (url: string) => void }) {
+function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
+  rawImage: string
+  mockupUrls: string[]
+  onExpand: (url: string) => void
+}) {
+  // First image is always the raw generated image, then Printify mockups
+  const allUrls = [rawImage, ...mockupUrls]
   const [idx, setIdx] = useState(0)
   const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
 
-  const prev = () => setIdx(i => (i - 1 + urls.length) % urls.length)
-  const next = () => setIdx(i => (i + 1) % urls.length)
+  const prev = useCallback(() => setIdx(i => (i - 1 + allUrls.length) % allUrls.length), [allUrls.length])
+  const next = useCallback(() => setIdx(i => (i + 1) % allUrls.length), [allUrls.length])
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return
-    const diff = touchStartX.current - e.changedTouches[0].clientX
-    if (Math.abs(diff) > 40) diff > 0 ? next() : prev()
-    touchStartX.current = null
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
   }
 
-  if (!urls.length) return null
-  const url = urls[idx]
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const diffX = touchStartX.current - e.changedTouches[0].clientX
+    const diffY = touchStartY.current - e.changedTouches[0].clientY
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      diffX > 0 ? next() : prev()
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
+  const currentUrl = allUrls[idx]
+  const label = idx === 0 ? 'Your artwork' : `View ${idx} of ${allUrls.length - 1}`
 
   return (
-    <div className="flex flex-col items-center w-full">
-      <div className="relative flex items-center justify-center w-full"
+    <div className="flex flex-col items-center w-full select-none">
+      <div className="relative w-full flex items-center justify-center"
         onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 
         {/* Left arrow */}
-        {urls.length > 1 && (
+        {allUrls.length > 1 && (
           <button onClick={prev}
-            className="absolute left-0 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition -translate-x-1 sm:translate-x-0"
-            style={{ fontSize: 14 }}>‹</button>
+            className="absolute left-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
+            style={{ fontSize: 18, lineHeight: 1 }}>‹</button>
         )}
 
-        {/* Main image — always fits, never clips */}
-        <div className="relative mx-8 sm:mx-10">
+        {/* Image */}
+        <div className="relative mx-10 sm:mx-12">
           <img
-            src={url}
-            alt={`Mockup view ${idx + 1}`}
-            className="rounded-lg object-contain"
-            style={{
-              maxWidth: '100%',
-              maxHeight: 'min(60vw, 500px)',
-              width: 'auto',
-              height: 'auto',
-              display: 'block',
-            }}
+            src={currentUrl}
+            alt={label}
+            className="rounded-lg object-contain mx-auto"
+            style={{ maxWidth: '100%', maxHeight: 'min(62vw, 520px)', width: 'auto', height: 'auto', display: 'block' }}
           />
-          {/* Small expand button in bottom-right corner */}
+          {/* Expand button — corner icon, never blocks image */}
           <button
-            onClick={() => onExpand(url)}
-            className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition"
+            onClick={() => onExpand(currentUrl)}
+            className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             title="View full size">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
             </svg>
           </button>
         </div>
 
         {/* Right arrow */}
-        {urls.length > 1 && (
+        {allUrls.length > 1 && (
           <button onClick={next}
-            className="absolute right-0 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition translate-x-1 sm:translate-x-0"
-            style={{ fontSize: 14 }}>›</button>
+            className="absolute right-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
+            style={{ fontSize: 18, lineHeight: 1 }}>›</button>
         )}
       </div>
 
-      {/* Dots */}
-      {urls.length > 1 && (
-        <div className="flex items-center gap-1.5 mt-3">
-          {urls.map((_, i) => (
+      {/* Line indicators instead of dots */}
+      {allUrls.length > 1 && (
+        <div className="flex items-center gap-1.5 mt-4">
+          {allUrls.map((_, i) => (
             <button key={i} onClick={() => setIdx(i)}
-              className="rounded-full transition-all"
-              style={{ width: i === idx ? 16 : 6, height: 6, background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : '#ddd9f7' }} />
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === idx ? 24 : 8,
+                height: 4,
+                background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : 'rgba(109,61,243,0.2)',
+              }} />
           ))}
         </div>
       )}
 
-      {urls.length > 1 && (
-        <p className="text-xs text-[#8a89a8] mt-1">{idx + 1} of {urls.length} views</p>
-      )}
+      <p className="text-xs text-[#8a89a8] mt-2">{label}</p>
     </div>
   )
 }
 
-// ── Product Frame Mockup (flat image fallback) ─────────────────────────
-// Used only when Printify mockup hasn't loaded yet or failed.
-// Frame always borders the full image — never clips.
-function ProductMockupFrame({ product, size, imageUrl, onExpand }: { product: Product; size: Size; imageUrl: string; onExpand: () => void }) {
-  const ratio = size.width / size.height
+// ── Lightbox with swipe ────────────────────────────────────────────────
+function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: number; onClose: () => void }) {
+  const [idx, setIdx] = useState(startIdx)
+  const touchStartX = useRef<number | null>(null)
 
-  // Responsive sizing — fits on any screen
-  const frameStyle: React.CSSProperties = {
-    maxWidth: '100%',
-    maxHeight: 'min(65vw, 500px)',
-    width: 'auto',
-    height: 'auto',
-    display: 'block',
-    objectFit: 'contain',
-  }
-
-  const expandBtn = (
-    <button onClick={onExpand}
-      className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition z-10"
-      title="View full size">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-      </svg>
-    </button>
-  )
-
-  if (product.id === 'matte-canvas-framed') {
-    return (
-      <div className="flex flex-col items-center w-full">
-        <div className="relative inline-block" style={{ padding: 20, background: 'linear-gradient(145deg,#2a2a2a,#111)', borderRadius: 4, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
-          <div style={{ padding: 8, background: '#f5f0eb' }}>
-            <div className="relative">
-              <img src={imageUrl} alt="Your design" style={frameStyle} />
-              {expandBtn}
-            </div>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-gray-400 font-medium">Black wood frame · {size.label}</div>
-      </div>
-    )
-  }
-
-  if (product.id === 'matte-canvas') {
-    return (
-      <div className="flex flex-col items-center w-full">
-        <div className="relative inline-block" style={{ boxShadow: '6px 6px 0 #d0cec8, 0 20px 50px rgba(0,0,0,0.15)' }}>
-          <img src={imageUrl} alt="Your design" style={frameStyle} />
-          <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,0.08)', pointerEvents: 'none' }} />
-          {expandBtn}
-        </div>
-        <div className="mt-2 text-xs text-gray-400 font-medium">Gallery canvas wrap · {size.label}</div>
-      </div>
-    )
-  }
-
-  if (product.id === 'wall-tapestry') {
-    return (
-      <div className="flex flex-col items-center w-full">
-        <div style={{ width: '100%', maxWidth: 'min(65vw, 500px)', height: 12, background: 'linear-gradient(180deg,#b8956a,#8B7355)', borderRadius: 6, boxShadow: '0 2px 6px rgba(0,0,0,0.2)', marginBottom: 2, position: 'relative' }}>
-          <div style={{ position: 'absolute', left: -3, top: -3, width: 18, height: 18, borderRadius: '50%', background: '#c4a47a', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', right: -3, top: -3, width: 18, height: 18, borderRadius: '50%', background: '#c4a47a', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }} />
-        </div>
-        <div className="relative inline-block" style={{ boxShadow: '0 15px 40px rgba(0,0,0,0.15)' }}>
-          <img src={imageUrl} alt="Your design" style={frameStyle} />
-          {expandBtn}
-        </div>
-        <div className="mt-2 text-xs text-gray-400 font-medium">Woven tapestry · {size.label}</div>
-      </div>
-    )
-  }
-
-  // Poster
-  return (
-    <div className="flex flex-col items-center w-full">
-      <div className="relative inline-block" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 15px 45px rgba(0,0,0,0.12)' }}>
-        <img src={imageUrl} alt="Your design" style={frameStyle} />
-        {expandBtn}
-      </div>
-      <div className="mt-2 text-xs text-gray-400 font-medium">Matte poster print · {size.label}</div>
-    </div>
-  )
-}
-
-// ── Lightbox ───────────────────────────────────────────────────────────
-function Lightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') setIdx(i => (i - 1 + urls.length) % urls.length)
+      if (e.key === 'ArrowRight') setIdx(i => (i + 1) % urls.length)
+    }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, urls.length])
+
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 40) diff > 0
+      ? setIdx(i => (i + 1) % urls.length)
+      : setIdx(i => (i - 1 + urls.length) % urls.length)
+    touchStartX.current = null
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.93)' }} onClick={onClose}>
-      <div className="relative w-full max-w-5xl" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute -top-10 right-0 text-white/60 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.95)' }}
+      onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}>
+      <div className="relative w-full max-w-5xl px-4" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose}
+          className="absolute -top-12 right-4 text-white/60 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
           ✕ Close <span className="text-white/30 text-xs">(Esc)</span>
         </button>
-        <img src={imageUrl} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl" style={{ maxHeight: '88vh', objectFit: 'contain' }} />
+
+        {urls.length > 1 && (
+          <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+            style={{ fontSize: 22 }}>‹</button>
+        )}
+
+        <img src={urls[idx]} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl mx-auto"
+          style={{ maxHeight: '85vh', objectFit: 'contain' }} />
+
+        {urls.length > 1 && (
+          <button onClick={() => setIdx(i => (i + 1) % urls.length)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+            style={{ fontSize: 22 }}>›</button>
+        )}
+
+        {/* Line indicators in lightbox */}
+        {urls.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            {urls.map((_, i) => (
+              <button key={i} onClick={() => setIdx(i)}
+                className="rounded-full transition-all duration-300"
+                style={{
+                  width: i === idx ? 24 : 8,
+                  height: 4,
+                  background: i === idx ? 'white' : 'rgba(255,255,255,0.3)',
+                }} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -340,7 +353,8 @@ export default function Home() {
   const [generationsLeft, setGenerationsLeft] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [modifyError, setModifyError] = useState<string | null>(null)
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxUrls, setLightboxUrls] = useState<string[]>([])
+  const [lightboxStartIdx, setLightboxStartIdx] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -349,8 +363,10 @@ export default function Home() {
 
   const activeImage = generatedImage || uploadedImage
   const total = (selectedSize?.price || 0) + 499
+  const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
 
   useEffect(() => {
+    setGenerationsLeft(loadGenerationsLeft())
     const check = () => setIsMobile(window.innerWidth < 640)
     check()
     window.addEventListener('resize', check)
@@ -405,11 +421,15 @@ export default function Home() {
     if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
-      const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, width: selectedSize.width, height: selectedSize.height }) })
+      const res = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGeneratedImage(data.imageUrl)
-      setGenerationsLeft(data.generationsLeft ?? generationsLeft - 1)
+      saveGenerationUsed()
+      setGenerationsLeft(loadGenerationsLeft())
       await generateMockup(data.imageUrl)
       setStep('preview')
     } catch (e: any) { setError(e.message) }
@@ -421,11 +441,15 @@ export default function Home() {
     setModifying(true); setModifyError(null); setMockupUrls([])
     try {
       const combinedPrompt = `${prompt}. Modification: ${modifyPrompt}`
-      const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.width, height: selectedSize.height }) })
+      const res = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGeneratedImage(data.imageUrl)
-      setGenerationsLeft(data.generationsLeft ?? generationsLeft - 1)
+      saveGenerationUsed()
+      setGenerationsLeft(loadGenerationsLeft())
       setModifyPrompt('')
       await generateMockup(data.imageUrl)
     } catch (e: any) { setModifyError(e.message) }
@@ -449,38 +473,42 @@ export default function Home() {
     setError(null); await createPaymentIntent(); setStep('payment')
   }
 
-  // On mobile: auto-advance when product + size both selected
   const handleSizeSelect = (size: Size) => {
     setSelectedSize(size)
-    if (isMobile && selectedProduct) {
-      setTimeout(() => setStep('create'), 120)
-    }
+    if (isMobile && selectedProduct) setTimeout(() => setStep('create'), 150)
+  }
+
+  const openLightbox = (url: string) => {
+    const idx = allPreviewUrls.indexOf(url)
+    setLightboxStartIdx(idx >= 0 ? idx : 0)
+    setLightboxUrls(allPreviewUrls)
   }
 
   const reset = () => {
     setStep('product'); setSelectedProduct(null); setSelectedSize(null)
     setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
     setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null)
-    setOrderId(null); setError(null); setModifyError(null); setLightboxUrl(null)
+    setOrderId(null); setError(null); setModifyError(null); setLightboxUrls([])
     setShipping({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
     setPromptSuggestions(getRandomPrompts())
   }
 
-  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-sm text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
+  // Prevent iOS zoom on input focus — font-size must be 16px on inputs
+  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-[16px] text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-6 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
   return (
     <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {lightboxUrl && (
-        <Lightbox imageUrl={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      {lightboxUrls.length > 0 && (
+        <Lightbox urls={lightboxUrls} startIdx={lightboxStartIdx} onClose={() => setLightboxUrls([])} />
       )}
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1540px] items-center justify-between px-4 sm:px-8">
-          <button onClick={reset} className="flex items-center flex-shrink-0">
+          <button onClick={reset} className="flex-shrink-0">
             <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
           </button>
           <div className="hidden flex-1 justify-center lg:flex">
@@ -502,7 +530,7 @@ export default function Home() {
         {step === 'product' && (
           <>
             {/* Paint stroke — desktop only */}
-            <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[300px] sm:w-[390px] opacity-90 overflow-hidden hidden sm:block">
+            <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[390px] opacity-90 overflow-hidden hidden sm:block">
               <div className="absolute -left-24 top-14 h-28 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
               <div className="absolute -left-32 top-32 h-24 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
               <div className="absolute -left-24 top-48 h-24 w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
@@ -510,11 +538,10 @@ export default function Home() {
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
 
-              {/* Hero — mobile: just logo + subtitle. Desktop: full headline */}
-              <div className="relative mb-8 sm:mb-6 sm:min-h-[300px]">
-
+              {/* Hero — mobile: logo + subtitle only. Desktop: full headline */}
+              <div className="relative mb-8 sm:mb-4">
                 {/* Mobile hero */}
-                <div className="flex flex-col items-center text-center sm:hidden pt-2 pb-4">
+                <div className="flex flex-col items-center text-center sm:hidden pt-2 pb-2">
                   <img src="/logo.png" alt="Create2Print" className="h-20 w-auto object-contain mb-4" />
                   <p className="text-[15px] leading-7 text-[#48527a] max-w-[300px]">
                     Describe any artwork. We generate it, print it, and ship it to your door.
@@ -527,14 +554,14 @@ export default function Home() {
                     <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
                       <span>✦</span><span>AI-Powered Print Shop</span>
                     </div>
-                    <div className="relative pb-4">
+                    <div className="relative pb-5">
                       <span className="absolute -left-8 top-20 text-3xl text-[#5e31ed]">✦</span>
                       <span className="absolute -right-8 top-4 text-3xl text-[#c43cf1]">✦</span>
                       <span className="absolute left-10 -top-3 text-3xl text-[#ff9718]">✦</span>
-                      <h1 className="font-extrabold leading-[0.94] tracking-[-0.045em] pb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                      <h1 className="font-extrabold leading-[0.95] tracking-[-0.045em]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                         <span className="block text-[#071633]" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Create It.</span>
                         <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Print It.</span>
-                        <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
+                        <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent pb-2" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
                       </h1>
                     </div>
                     <p className="mx-auto mt-2 max-w-[580px] text-[17px] leading-7 text-[#48527a]">
@@ -550,63 +577,61 @@ export default function Home() {
               </div>
 
               {/* Product cards */}
-              <section>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {PRODUCTS.map(product => (
-                    <div key={product.id}>
-                      <article onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
-                        className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
-                        <div className="overflow-hidden rounded-[10px] bg-[#efedf3]">
-                          {productImages[product.id] ? (
-                            <img src={productImages[product.id]} alt={product.name} className="h-[170px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
-                          ) : (
-                            <div className="h-[170px] w-full flex items-center justify-center text-4xl bg-gray-50">{product.emoji}</div>
-                          )}
-                        </div>
-                        <div className="relative px-1.5 pb-1.5 pt-3">
-                          <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                          <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.material}</p>
-                          <div className="mt-3 flex items-center justify-between">
-                            <div>
-                              <div className="text-[11px] text-[#747aa2]">from</div>
-                              <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
-                            </div>
-                            <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {PRODUCTS.map(product => (
+                  <div key={product.id}>
+                    <article onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
+                      className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
+                      <div className="overflow-hidden rounded-[10px] bg-[#efedf3]">
+                        {productImages[product.id] ? (
+                          <img src={productImages[product.id]} alt={product.name} className="h-[170px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+                        ) : (
+                          <div className="h-[170px] w-full flex items-center justify-center text-4xl bg-gray-50">{product.emoji}</div>
+                        )}
+                      </div>
+                      <div className="relative px-1.5 pb-1.5 pt-3">
+                        <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
+                        <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.material}</p>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div>
+                            <div className="text-[11px] text-[#747aa2]">from</div>
+                            <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
                           </div>
+                          <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
                         </div>
-                      </article>
+                      </div>
+                    </article>
 
-                      {/* Size selector */}
-                      {selectedProduct?.id === product.id && (
-                        <div className="mt-3">
-                          <div className="mb-2 flex items-end justify-between">
-                            <h2 className="text-[17px] font-extrabold">Select Size</h2>
-                            {isMobile && <p className="text-xs text-[#6d3df3] font-semibold">Tap a size to continue →</p>}
-                            {!isMobile && <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2.5">
-                            {product.sizes.map(size => {
-                              const shape = getSizeShape(size.width, size.height)
-                              const sel = selectedSize?.label === size.label
-                              return (
-                                <button key={size.label} type="button" onClick={() => handleSizeSelect(size)}
-                                  className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
-                                  <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
-                                  <span className="text-[13px] font-extrabold">{size.label}</span>
-                                  <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
-                                </button>
-                              )
-                            })}
-                          </div>
+                    {selectedProduct?.id === product.id && (
+                      <div className="mt-3">
+                        <div className="mb-2 flex items-end justify-between">
+                          <h2 className="text-[17px] font-extrabold">Select Size</h2>
+                          {isMobile
+                            ? <p className="text-xs text-[#6d3df3] font-semibold">Tap size to continue →</p>
+                            : <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {product.sizes.map(size => {
+                            const shape = getSizeShape(size.width, size.height)
+                            const sel = selectedSize?.label === size.label
+                            return (
+                              <button key={size.label} type="button" onClick={() => handleSizeSelect(size)}
+                                className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
+                                <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
+                                <span className="text-[13px] font-extrabold">{size.label}</span>
+                                <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
 
               {/* CTA — desktop only */}
-              <section className="hidden sm:block mx-auto mt-7 max-w-[580px] text-center">
+              <div className="hidden sm:block mx-auto mt-7 max-w-[580px] text-center">
                 <button type="button" onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
                   disabled={!selectedProduct || !selectedSize} className={primaryBtn}>
                   ✦ CONTINUE — DESIGN YOUR ART →
@@ -614,10 +639,10 @@ export default function Home() {
                 <p className="mt-2 text-sm text-[#878cac]">
                   {!selectedProduct ? 'Select a product to continue' : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
                 </p>
-              </section>
+              </div>
 
               {/* Trust bar */}
-              <section className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
+              <div className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
                 {[
                   { icon: '✦', title: 'AI-Generated Art', subtitle: 'Unique to you' },
                   { icon: '🎖', title: 'Premium Quality', subtitle: 'Museum grade prints' },
@@ -632,7 +657,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-              </section>
+              </div>
             </section>
 
             {/* FAQ */}
@@ -663,7 +688,7 @@ export default function Home() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")</div>
+                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
               </div>
               <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
@@ -692,7 +717,7 @@ export default function Home() {
                     <button onClick={() => setPromptSuggestions(getRandomPrompts())}
                       className="text-xs text-[#6d3df3] font-semibold hover:text-[#5924f5] transition-colors flex items-center gap-1">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                        <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
                       </svg>
                       Refresh
                     </button>
@@ -718,7 +743,7 @@ export default function Home() {
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
                       Generating your artwork...
                     </span>
                   ) : '✦ Generate Artwork'}
@@ -727,7 +752,7 @@ export default function Home() {
                   <div className="space-y-3 py-1">
                     <div className="flex items-center gap-3">
                       <svg className="animate-spin w-5 h-5 flex-shrink-0 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <circle cx="12" cy="12" r="10" strokeOpacity="0.2" /><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
                       </svg>
                       <div className="flex-1 bg-[#e8e4ff] rounded-full h-4 overflow-hidden shadow-inner">
                         <div className="h-4 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] shadow-[0_0_12px_rgba(239,72,167,0.5)]"
@@ -736,7 +761,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-[#6d3df3] flex-shrink-0">~30s</span>
                     </div>
                     <p className="text-center text-[#8a89a8] text-xs animate-pulse">
-                      Creating your artwork for {selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}")...
+                      Creating your artwork optimized for {selectedSize?.label} ({selectedSize?.aspectRatio} ratio)...
                     </p>
                   </div>
                 )}
@@ -751,7 +776,7 @@ export default function Home() {
                     <div>
                       <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
                       <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.uploadAspectRatioNote}</div>
-                      <div className="text-xs mt-1 font-bold text-amber-900">Recommended for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
+                      <div className="text-xs mt-1 font-bold text-amber-900">Required ratio for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -773,33 +798,27 @@ export default function Home() {
             <button onClick={() => setStep('create')} className={backBtn}>← Back to create</button>
             <div className="text-center mb-6">
               <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">
-                {loadingMockup || modifying ? 'Generating...' : 'Looking great! 🎉'}
+                {loadingMockup || modifying ? 'Generating views...' : 'Looking great! 🎉'}
               </h2>
               <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Mockup carousel or loading */}
-            <div className="flex justify-center mb-4">
+            {/* Carousel or loading */}
+            <div className="flex justify-center mb-4 w-full">
               {loadingMockup || modifying ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-16">
                   <svg className="animate-spin w-10 h-10 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" />
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/>
                   </svg>
                   <p className="text-[#8a89a8] text-sm animate-pulse">
-                    {modifying ? 'Applying your modifications...' : 'Placing your design on the product...'}
+                    {modifying ? 'Applying modifications...' : 'Generating all product views...'}
                   </p>
                 </div>
-              ) : mockupUrls.length > 0 ? (
-                <div className="w-full">
-                  <MockupCarousel urls={mockupUrls} onExpand={(url) => setLightboxUrl(url)} />
-                </div>
-              ) : activeImage && selectedProduct && selectedSize ? (
-                // Fallback to flat image with frame if no mockup
-                <ProductMockupFrame
-                  product={selectedProduct}
-                  size={selectedSize}
-                  imageUrl={activeImage}
-                  onExpand={() => setLightboxUrl(activeImage)}
+              ) : activeImage ? (
+                <MockupCarousel
+                  rawImage={activeImage}
+                  mockupUrls={mockupUrls}
+                  onExpand={(url) => openLightbox(url)}
                 />
               ) : null}
             </div>
@@ -833,7 +852,7 @@ export default function Home() {
                   className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-6 py-3 text-sm font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {modifying ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
                       Applying modifications...
                     </span>
                   ) : generationsLeft <= 0 ? 'No generations remaining' : '✦ Apply Modifications'}
