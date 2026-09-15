@@ -10,8 +10,10 @@
   "dependencies": {
     "@stripe/react-stripe-js": "^2.7.0",
     "@stripe/stripe-js": "^3.4.0",
+    "@supabase/supabase-js": "^2.116.0",
     "axios": "^1.7.2",
     "next": "^14.2.35",
+    "next-auth": "^4.24.15",
     "openai": "^4.47.1",
     "react": "^18",
     "react-dom": "^18",
