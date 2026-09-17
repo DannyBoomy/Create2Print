@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-function generateId(length = 8) {
+function generateId(length = 8): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Log env vars (masked) to confirm they're loaded
     console.log('SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING')
     console.log('SERVICE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING')
 
@@ -21,20 +20,18 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey)
-
     const body = await req.json()
     const { imageBase64, prompt, productId, productName, sizeName, variantId } = body
 
-    console.log('Share request received for product:', productName)
+    console.log('Share request for product:', productName)
     console.log('Image type:', imageBase64?.startsWith('data:') ? 'base64' : 'url')
-    }
 
     const shareId = generateId()
     const fileName = `${shareId}.png`
     let imageUrl: string
 
-    if (imageBase64.startsWith('data:')) {
-      console.log('Uploading base64 image to Supabase storage...')
+    if (imageBase64 && imageBase64.startsWith('data:')) {
+      console.log('Uploading base64 image...')
       const base64Data = imageBase64.split(',')[1]
       const buffer = Buffer.from(base64Data, 'base64')
 
@@ -46,24 +43,21 @@ export async function POST(req: NextRequest) {
         })
 
       if (uploadError) {
-        console.error('Storage upload error:', JSON.stringify(uploadError))
+        console.error('Upload error:', JSON.stringify(uploadError))
         return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
       }
 
-      console.log('Upload successful:', uploadData)
+      console.log('Upload success:', uploadData)
       const { data: urlData } = supabase.storage.from('designs').getPublicUrl(fileName)
       imageUrl = urlData.publicUrl
-      console.log('Public URL:', imageUrl)
     } else {
-      // Already a URL
       imageUrl = imageBase64
-      console.log('Using existing URL:', imageUrl.substring(0, 60))
+      console.log('Using existing URL')
     }
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
 
-    console.log('Inserting share record...')
     const { error: dbError } = await supabase
       .from('shares')
       .insert({
@@ -80,17 +74,17 @@ export async function POST(req: NextRequest) {
       })
 
     if (dbError) {
-      console.error('DB insert error:', JSON.stringify(dbError))
+      console.error('DB error:', JSON.stringify(dbError))
       return NextResponse.json({ error: `DB error: ${dbError.message}` }, { status: 500 })
     }
 
     const shareUrl = `${process.env.NEXTAUTH_URL}/design/${shareId}`
-    console.log('Share created successfully:', shareUrl)
+    console.log('Share created:', shareUrl)
 
     return NextResponse.json({ shareId, shareUrl, imageUrl })
 
   } catch (error: any) {
-    console.error('Unexpected share error:', error?.message, error?.stack)
+    console.error('Share error:', error?.message, error?.stack)
     return NextResponse.json({ error: error?.message || 'Share failed' }, { status: 500 })
   }
 }
