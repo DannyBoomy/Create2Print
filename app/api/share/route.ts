@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+function generateId(length = 8) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+
 export async function POST(req: NextRequest) {
   try {
     // Log env vars (masked) to confirm they're loaded
@@ -22,10 +26,6 @@ export async function POST(req: NextRequest) {
 
     console.log('Share request received for product:', productName)
     console.log('Image type:', imageBase64?.startsWith('data:') ? 'base64' : 'url')
-
-    function generateId(length = 8) {
-      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-      return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     }
 
     const shareId = generateId()
