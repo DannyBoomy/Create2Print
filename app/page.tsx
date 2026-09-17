@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSession, signIn, signOut } from 'next-auth/react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { PRODUCTS, Product, Size, formatPrice, getOpenAIImageSize } from '@/lib/products'
+import { PRODUCTS, Product, Size, formatPrice } from '@/lib/products'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -21,9 +22,9 @@ const FAQ_ITEMS = [
   { q: 'How long does shipping take?', a: "Most orders are printed and shipped within 3–5 business days. Delivery typically takes an additional 3–7 business days depending on your location. You'll receive a tracking number via email as soon as your order ships." },
   { q: 'Is my payment secure?', a: "Yes. All payments are processed through Stripe, one of the world's most trusted payment processors. We never see or store your credit card information. Your transaction is fully encrypted end to end." },
   { q: 'Can I upload my own image?', a: "Yes — you can upload your own AI-generated or original artwork instead of generating one. We'll show you the recommended aspect ratio for your selected product so your image fits perfectly." },
-  { q: 'How many images can I generate?', a: 'Every visitor gets 3 free generations per session. Each generation produces one high-quality image using the latest AI model.' },
+  { q: 'How many images can I generate?', a: 'Every visitor gets 3 free generations per day. Sign in with Google to track your generations across sessions.' },
   { q: 'Will my image look good printed at large sizes?', a: 'Yes. Every image is generated at the exact resolution and aspect ratio required by your selected product, ensuring a perfect fit with no gaps or cropping.' },
-  { q: 'Who prints and ships my order?', a: "Create2Print is proudly partnered with Printify, a globally trusted print-on-demand network with production facilities worldwide. Your order is printed on professional-grade equipment and shipped directly to you." },
+  { q: 'Who prints and ships my order?', a: "Create2Print is proudly partnered with Printify, a globally trusted print-on-demand network with production facilities worldwide." },
   { q: 'Can I order from outside the US?', a: 'Yes — we ship worldwide to most countries through our Printify print partners. Simply select your country during checkout.' },
   { q: 'What if my order gets lost in the mail?', a: "Contact us at support@create2print.store. We'll investigate with the carrier and either reship your order or issue a full refund." },
 ]
@@ -58,6 +59,14 @@ const ALL_PROMPTS = [
 
 const GENERATION_STORAGE_KEY = 'c2p_generations'
 
+// Product images mapping
+const PRODUCT_IMAGES: Record<string, string> = {
+  'rolled-poster': '/product-rolled-poster.png',
+  'matte-canvas': '/product-matte-canvas.png',
+  'matte-canvas-framed': '/product-framed-canvas.png',
+  'wall-tapestry': '/product-tapestry.png',
+}
+
 function getRandomPrompts() {
   return [...ALL_PROMPTS].sort(() => Math.random() - 0.5).slice(0, 5)
 }
@@ -74,8 +83,7 @@ function loadGenerationsLeft(): number {
     const stored = localStorage.getItem(GENERATION_STORAGE_KEY)
     if (!stored) return 3
     const { count, timestamp } = JSON.parse(stored)
-    const now = Date.now()
-    if (now - timestamp > 24 * 60 * 60 * 1000) {
+    if (Date.now() - timestamp > 24 * 60 * 60 * 1000) {
       localStorage.removeItem(GENERATION_STORAGE_KEY)
       return 3
     }
@@ -88,9 +96,8 @@ function saveGenerationUsed() {
     const stored = localStorage.getItem(GENERATION_STORAGE_KEY)
     if (stored) {
       const { count, timestamp } = JSON.parse(stored)
-      const now = Date.now()
-      if (now - timestamp > 24 * 60 * 60 * 1000) {
-        localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: 1, timestamp: now }))
+      if (Date.now() - timestamp > 24 * 60 * 60 * 1000) {
+        localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: 1, timestamp: Date.now() }))
       } else {
         localStorage.setItem(GENERATION_STORAGE_KEY, JSON.stringify({ count: count + 1, timestamp }))
       }
@@ -104,13 +111,15 @@ function saveGenerationUsed() {
 function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   rawImage: string
   mockupUrls: string[]
-  onExpand: (url: string) => void
+  onExpand: (idx: number) => void
 }) {
-  // First image is always the raw generated image, then Printify mockups
   const allUrls = [rawImage, ...mockupUrls]
   const [idx, setIdx] = useState(0)
+  const [dragX, setDragX] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const prev = useCallback(() => setIdx(i => (i - 1 + allUrls.length) % allUrls.length), [allUrls.length])
   const next = useCallback(() => setIdx(i => (i + 1) % allUrls.length), [allUrls.length])
@@ -118,12 +127,26 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
+    setIsDragging(true)
+    setDragX(0)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diffX = e.touches[0].clientX - touchStartX.current
+    const diffY = Math.abs(e.touches[0].clientY - (touchStartY.current || 0))
+    if (Math.abs(diffX) > diffY) {
+      e.preventDefault()
+      setDragX(diffX)
+    }
   }
 
   const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return
+    if (touchStartX.current === null) return
     const diffX = touchStartX.current - e.changedTouches[0].clientX
-    const diffY = touchStartY.current - e.changedTouches[0].clientY
+    const diffY = Math.abs((touchStartY.current || 0) - e.changedTouches[0].clientY)
+    setIsDragging(false)
+    setDragX(0)
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
       diffX > 0 ? next() : prev()
     }
@@ -131,32 +154,30 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
     touchStartY.current = null
   }
 
-  const currentUrl = allUrls[idx]
-  const label = idx === 0 ? 'Your artwork' : `View ${idx} of ${allUrls.length - 1}`
-
   return (
-    <div className="flex flex-col items-center w-full select-none">
-      <div className="relative w-full flex items-center justify-center"
-        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="flex flex-col items-center w-full select-none overflow-hidden">
+      <div ref={containerRef} className="relative w-full flex items-center justify-center"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}>
 
-        {/* Left arrow */}
         {allUrls.length > 1 && (
           <button onClick={prev}
             className="absolute left-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
-            style={{ fontSize: 18, lineHeight: 1 }}>‹</button>
+            style={{ fontSize: 18 }}>‹</button>
         )}
 
-        {/* Image */}
-        <div className="relative mx-10 sm:mx-12">
+        <div className="relative mx-10 sm:mx-12"
+          style={{ transform: isDragging ? `translateX(${dragX * 0.3}px)` : 'translateX(0)', transition: isDragging ? 'none' : 'transform 0.3s ease' }}>
           <img
-            src={currentUrl}
-            alt={label}
+            src={allUrls[idx]}
+            alt={`View ${idx + 1}`}
             className="rounded-lg object-contain mx-auto"
             style={{ maxWidth: '100%', maxHeight: 'min(62vw, 520px)', width: 'auto', height: 'auto', display: 'block' }}
           />
-          {/* Expand button — corner icon, never blocks image */}
+          {/* Small expand button in corner */}
           <button
-            onClick={() => onExpand(currentUrl)}
+            onClick={() => onExpand(idx)}
             className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             title="View full size">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -165,38 +186,46 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
           </button>
         </div>
 
-        {/* Right arrow */}
         {allUrls.length > 1 && (
           <button onClick={next}
             className="absolute right-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
-            style={{ fontSize: 18, lineHeight: 1 }}>›</button>
+            style={{ fontSize: 18 }}>›</button>
         )}
       </div>
 
-      {/* Line indicators instead of dots */}
+      {/* Line indicators */}
       {allUrls.length > 1 && (
         <div className="flex items-center gap-1.5 mt-4">
           {allUrls.map((_, i) => (
             <button key={i} onClick={() => setIdx(i)}
               className="rounded-full transition-all duration-300"
-              style={{
-                width: i === idx ? 24 : 8,
-                height: 4,
-                background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : 'rgba(109,61,243,0.2)',
-              }} />
+              style={{ width: i === idx ? 24 : 8, height: 4, background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : 'rgba(109,61,243,0.2)' }} />
           ))}
         </div>
       )}
-
-      <p className="text-xs text-[#8a89a8] mt-2">{label}</p>
+      <p className="text-xs text-[#8a89a8] mt-2">{idx === 0 ? 'Your artwork' : `View ${idx} of ${allUrls.length - 1}`}</p>
     </div>
   )
 }
 
-// ── Lightbox with swipe ────────────────────────────────────────────────
+// ── Lightbox ────────────────────────────────────────────────────────────
 function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: number; onClose: () => void }) {
   const [idx, setIdx] = useState(startIdx)
   const touchStartX = useRef<number | null>(null)
+  const [dragX, setDragX] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    // Lock body scroll
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
+  }, [])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -208,58 +237,177 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
     return () => window.removeEventListener('keydown', h)
   }, [onClose, urls.length])
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    setIsDragging(true)
+    setDragX(0)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diffX = e.touches[0].clientX - touchStartX.current
+    setDragX(diffX)
+  }
+
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     const diff = touchStartX.current - e.changedTouches[0].clientX
-    if (Math.abs(diff) > 40) diff > 0
-      ? setIdx(i => (i + 1) % urls.length)
-      : setIdx(i => (i - 1 + urls.length) % urls.length)
+    setIsDragging(false)
+    setDragX(0)
+    if (Math.abs(diff) > 40) {
+      diff > 0
+        ? setIdx(i => (i + 1) % urls.length)
+        : setIdx(i => (i - 1 + urls.length) % urls.length)
+    }
     touchStartX.current = null
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.95)' }}
-      onClick={onClose}
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}>
-      <div className="relative w-full max-w-5xl px-4" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose}
-          className="absolute -top-12 right-4 text-white/60 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
-          ✕ Close <span className="text-white/30 text-xs">(Esc)</span>
-        </button>
 
-        {urls.length > 1 && (
-          <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
-            style={{ fontSize: 22 }}>‹</button>
-        )}
+      {/* X close button with circle */}
+      <button onClick={onClose}
+        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-all z-10">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
 
-        <img src={urls[idx]} alt="Full size" className="w-full h-auto rounded-xl shadow-2xl mx-auto"
+      {/* Left arrow */}
+      {urls.length > 1 && (
+        <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+          style={{ fontSize: 22 }}>‹</button>
+      )}
+
+      <div className="w-full max-w-5xl px-16"
+        style={{ transform: isDragging ? `translateX(${dragX * 0.3}px)` : 'translateX(0)', transition: isDragging ? 'none' : 'transform 0.3s ease' }}>
+        <img src={urls[idx]} alt="Full size"
+          className="w-full h-auto rounded-xl shadow-2xl mx-auto"
           style={{ maxHeight: '85vh', objectFit: 'contain' }} />
-
-        {urls.length > 1 && (
-          <button onClick={() => setIdx(i => (i + 1) % urls.length)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
-            style={{ fontSize: 22 }}>›</button>
-        )}
-
-        {/* Line indicators in lightbox */}
-        {urls.length > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-4">
-            {urls.map((_, i) => (
-              <button key={i} onClick={() => setIdx(i)}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width: i === idx ? 24 : 8,
-                  height: 4,
-                  background: i === idx ? 'white' : 'rgba(255,255,255,0.3)',
-                }} />
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Right arrow */}
+      {urls.length > 1 && (
+        <button onClick={() => setIdx(i => (i + 1) % urls.length)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+          style={{ fontSize: 22 }}>›</button>
+      )}
+
+      {/* Line indicators */}
+      {urls.length > 1 && (
+        <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-1.5">
+          {urls.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)}
+              className="rounded-full transition-all duration-300"
+              style={{ width: i === idx ? 24 : 8, height: 4, background: i === idx ? 'white' : 'rgba(255,255,255,0.3)' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Share Button ───────────────────────────────────────────────────────
+function ShareButton({ image, prompt, product, size }: {
+  image: string
+  prompt: string
+  product: Product | null
+  size: Size | null
+}) {
+  const [sharing, setSharing] = useState(false)
+  const [shared, setShared] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+
+  const handleShare = async () => {
+    setSharing(true)
+    try {
+      // Upload image and create share link
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: image,
+          prompt,
+          productId: product?.id,
+          productName: product?.name,
+          sizeName: size?.label,
+          variantId: size?.printifyVariantId,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      setShareUrl(data.shareUrl)
+      setShared(true)
+
+      // Use native Web Share API if available (iOS/Android share sheet)
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Check out my Create2Print design!',
+          text: `I made this AI-generated ${product?.name} on Create2Print — "${prompt}"`,
+          url: data.shareUrl,
+        })
+      } else {
+        // Fallback — copy to clipboard
+        await navigator.clipboard.writeText(data.shareUrl)
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Share error:', err)
+      }
+    }
+    setSharing(false)
+  }
+
+  const handleCopyLink = async () => {
+    if (shareUrl) {
+      await navigator.clipboard.writeText(shareUrl)
+    }
+  }
+
+  const handleSaveImage = () => {
+    const link = document.createElement('a')
+    link.href = image
+    link.download = `create2print-${Date.now()}.png`
+    link.click()
+  }
+
+  return (
+    <div className="flex flex-wrap gap-3 justify-center">
+      <button onClick={handleShare} disabled={sharing}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-50">
+        {sharing ? (
+          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/>
+          </svg>
+        )}
+        {sharing ? 'Creating link...' : shared ? 'Share Again' : 'Share'}
+      </button>
+
+      {shareUrl && (
+        <button onClick={handleCopyLink}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy Link
+        </button>
+      )}
+
+      <button onClick={handleSaveImage}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Save Image
+      </button>
     </div>
   )
 }
@@ -335,10 +483,10 @@ function StepBar({ step }: { step: Step }) {
 
 // ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
+  const { data: session } = useSession()
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedSize, setSelectedSize] = useState<Size | null>(null)
-  const [productImages, setProductImages] = useState<Record<string, string>>({})
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
   const [prompt, setPrompt] = useState('')
   const [modifyPrompt, setModifyPrompt] = useState('')
@@ -353,7 +501,7 @@ export default function Home() {
   const [generationsLeft, setGenerationsLeft] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [modifyError, setModifyError] = useState<string | null>(null)
-  const [lightboxUrls, setLightboxUrls] = useState<string[]>([])
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxStartIdx, setLightboxStartIdx] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
@@ -362,8 +510,8 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const activeImage = generatedImage || uploadedImage
-  const total = (selectedSize?.price || 0) + 499
   const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
+  const total = (selectedSize?.price || 0) + 599 // includes shipping
 
   useEffect(() => {
     setGenerationsLeft(loadGenerationsLeft())
@@ -371,16 +519,6 @@ export default function Home() {
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
-  }, [])
-
-  useEffect(() => {
-    PRODUCTS.forEach(async (product) => {
-      try {
-        const res = await fetch(`/api/products?blueprintId=${product.printifyBlueprintId}`)
-        const data = await res.json()
-        if (data.images?.[0]) setProductImages(prev => ({ ...prev, [product.id]: data.images[0] }))
-      } catch {}
-    })
   }, [])
 
   const generateMockup = async (imageUrl: string) => {
@@ -478,22 +616,20 @@ export default function Home() {
     if (isMobile && selectedProduct) setTimeout(() => setStep('create'), 150)
   }
 
-  const openLightbox = (url: string) => {
-    const idx = allPreviewUrls.indexOf(url)
-    setLightboxStartIdx(idx >= 0 ? idx : 0)
-    setLightboxUrls(allPreviewUrls)
+  const openLightbox = (idx: number) => {
+    setLightboxStartIdx(idx)
+    setLightboxOpen(true)
   }
 
   const reset = () => {
     setStep('product'); setSelectedProduct(null); setSelectedSize(null)
     setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
     setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null)
-    setOrderId(null); setError(null); setModifyError(null); setLightboxUrls([])
+    setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
     setShipping({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
     setPromptSuggestions(getRandomPrompts())
   }
 
-  // Prevent iOS zoom on input focus — font-size must be 16px on inputs
   const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-[16px] text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-6 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
@@ -501,8 +637,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {lightboxUrls.length > 0 && (
-        <Lightbox urls={lightboxUrls} startIdx={lightboxStartIdx} onClose={() => setLightboxUrls([])} />
+      {lightboxOpen && allPreviewUrls.length > 0 && (
+        <Lightbox urls={allPreviewUrls} startIdx={lightboxStartIdx} onClose={() => setLightboxOpen(false)} />
       )}
 
       {/* Header */}
@@ -514,7 +650,20 @@ export default function Home() {
           <div className="hidden flex-1 justify-center lg:flex">
             <StepBar step={step} />
           </div>
-          <div className="flex justify-end">
+          <div className="flex items-center gap-3">
+            {/* Google Sign In */}
+            {session ? (
+              <div className="flex items-center gap-2">
+                <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#ddd9f7]" />
+                <button onClick={() => signOut()} className="hidden sm:block text-xs text-[#8a89a8] hover:text-[#6d3df3] font-semibold transition-colors">Sign out</button>
+              </div>
+            ) : (
+              <button onClick={() => signIn('google')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#e0e0ed] bg-white text-xs font-bold text-[#071633] hover:border-[#6d3df3] hover:text-[#6d3df3] transition-all shadow-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                <span className="hidden sm:inline">Sign in</span>
+              </button>
+            )}
             <div className="flex items-center gap-2 rounded-full bg-[#f0ecff] px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#4f24d8]">
               <span>🌐</span>
               <span className="hidden sm:inline">Worldwide Shipping</span>
@@ -529,7 +678,6 @@ export default function Home() {
         {/* ── STEP 1: Product ── */}
         {step === 'product' && (
           <>
-            {/* Paint stroke — desktop only */}
             <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[390px] opacity-90 overflow-hidden hidden sm:block">
               <div className="absolute -left-24 top-14 h-28 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
               <div className="absolute -left-32 top-32 h-24 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
@@ -537,8 +685,6 @@ export default function Home() {
             </div>
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
-
-              {/* Hero — mobile: logo + subtitle only. Desktop: full headline */}
               <div className="relative mb-8 sm:mb-4">
                 {/* Mobile hero */}
                 <div className="flex flex-col items-center text-center sm:hidden pt-2 pb-2">
@@ -576,18 +722,18 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Product cards */}
+              {/* Product cards — using custom images */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {PRODUCTS.map(product => (
                   <div key={product.id}>
                     <article onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
                       className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
-                      <div className="overflow-hidden rounded-[10px] bg-[#efedf3]">
-                        {productImages[product.id] ? (
-                          <img src={productImages[product.id]} alt={product.name} className="h-[170px] w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
-                        ) : (
-                          <div className="h-[170px] w-full flex items-center justify-center text-4xl bg-gray-50">{product.emoji}</div>
-                        )}
+                      <div className="overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
+                        <img
+                          src={PRODUCT_IMAGES[product.id]}
+                          alt={product.name}
+                          className="w-full h-full object-contain transition duration-500 group-hover:scale-[1.025]"
+                        />
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
@@ -677,14 +823,9 @@ export default function Home() {
         {step === 'create' && (
           <div className="mx-auto max-w-lg px-4 sm:px-8 py-8 w-full">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
-
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
-                {productImages[selectedProduct?.id || ''] ? (
-                  <img src={productImages[selectedProduct?.id || '']} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-2xl">{selectedProduct?.emoji}</div>
-                )}
+                <img src={PRODUCT_IMAGES[selectedProduct?.id || '']} alt="" className="w-full h-full object-contain" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
@@ -737,7 +878,7 @@ export default function Home() {
                       <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
                     ))}
                   </div>
-                  <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining</span>
+                  <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining today</span>
                 </div>
                 {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
                 <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
@@ -803,7 +944,6 @@ export default function Home() {
               <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
             </div>
 
-            {/* Carousel or loading */}
             <div className="flex justify-center mb-4 w-full">
               {loadingMockup || modifying ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-16">
@@ -818,10 +958,22 @@ export default function Home() {
                 <MockupCarousel
                   rawImage={activeImage}
                   mockupUrls={mockupUrls}
-                  onExpand={(url) => openLightbox(url)}
+                  onExpand={(idx) => openLightbox(idx)}
                 />
               ) : null}
             </div>
+
+            {/* Share buttons */}
+            {!loadingMockup && !modifying && activeImage && (
+              <div className="mb-5 max-w-2xl mx-auto">
+                <ShareButton
+                  image={activeImage}
+                  prompt={prompt}
+                  product={selectedProduct}
+                  size={selectedSize}
+                />
+              </div>
+            )}
 
             {!loadingMockup && !modifying && selectedSize && (
               <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
@@ -867,11 +1019,11 @@ export default function Home() {
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
               <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
-                <span>Shipping (estimated)</span><span>~$4.99</span>
+                <span>Shipping</span><span>Calculated at checkout</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
-                <span>Total</span>
-                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
+                <span>Subtotal</span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(selectedSize?.price || 0)}</span>
               </div>
             </div>
 
@@ -908,10 +1060,20 @@ export default function Home() {
                 </select>
               </div>
             </div>
+
+            {/* Shipping cost display */}
             <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <span className="text-sm text-[#747aa2]">{selectedProduct?.emoji} {selectedProduct?.name} · {selectedSize?.label}</span>
-              <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
+              <div>
+                <div className="text-sm text-[#747aa2]">{selectedProduct?.name} · {selectedSize?.label}</div>
+                <div className="text-xs text-[#8a89a8] mt-0.5">
+                  Shipping: {['US'].includes(shipping.country) ? '$5.99' : '$14.99'} ({shipping.country === 'US' ? 'Domestic' : 'International'})
+                </div>
+              </div>
+              <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
+                {formatPrice((selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499))}
+              </span>
             </div>
+
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
             <div className="mt-5">
               <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
@@ -931,15 +1093,18 @@ export default function Home() {
                 <span>{formatPrice(selectedSize?.price || 0)}</span>
               </div>
               <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
-                <span>Shipping to {shipping.country}</span><span>~$4.99</span>
+                <span>Shipping to {shipping.country}</span>
+                <span>{shipping.country === 'US' ? '$5.99' : '$14.99'}</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Total due today</span>
-                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(total)}</span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
+                  {formatPrice((selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499))}
+                </span>
               </div>
             </div>
             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: '#6d3df3', borderRadius: '12px' } } }}>
-              <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
+              <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={(selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499)} />
             </Elements>
             <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">
               <span>🔒 SSL encrypted</span>
