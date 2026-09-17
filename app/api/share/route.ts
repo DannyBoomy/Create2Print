@@ -18,31 +18,38 @@ export async function POST(req: NextRequest) {
     const shareId = generateId()
     const fileName = `${shareId}.png`
 
-    // Upload image to Supabase Storage
-    const base64Data = imageBase64.startsWith('data:')
-      ? imageBase64.split(',')[1]
-      : imageBase64
-    const buffer = Buffer.from(base64Data, 'base64')
+    // Handle both base64 data URLs and regular URLs
+    let imageUrl: string
 
-    const { error: uploadError } = await supabase.storage
-      .from('designs')
-      .upload(fileName, buffer, {
-        contentType: 'image/png',
-        upsert: false,
-      })
+    if (imageBase64.startsWith('data:')) {
+      // Upload base64 image to Supabase
+      const base64Data = imageBase64.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
 
-    if (uploadError) throw uploadError
+      const { error: uploadError } = await supabase.storage
+        .from('designs')
+        .upload(fileName, buffer, {
+          contentType: 'image/png',
+          upsert: false,
+        })
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('designs')
-      .getPublicUrl(fileName)
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
 
-    const imageUrl = urlData.publicUrl
+      const { data: urlData } = supabase.storage
+        .from('designs')
+        .getPublicUrl(fileName)
 
-    // Save share record to database
+      imageUrl = urlData.publicUrl
+    } else {
+      // It's already a URL (from OpenAI) — store it directly
+      imageUrl = imageBase64
+    }
+
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 day auto-delete
+    expiresAt.setDate(expiresAt.getDate() + 7)
 
     const { error: dbError } = await supabase
       .from('shares')
@@ -59,16 +66,18 @@ export async function POST(req: NextRequest) {
         created_at: new Date().toISOString(),
       })
 
-    if (dbError) throw dbError
+    if (dbError) {
+      console.error('DB error:', dbError)
+      throw dbError
+    }
 
-    return NextResponse.json({
-      shareId,
-      shareUrl: `${process.env.NEXTAUTH_URL}/design/${shareId}`,
-      imageUrl,
-    })
+    const shareUrl = `${process.env.NEXTAUTH_URL}/design/${shareId}`
+    console.log('Share created:', shareId, shareUrl)
+
+    return NextResponse.json({ shareId, shareUrl, imageUrl })
 
   } catch (error: any) {
-    console.error('Share error:', error)
+    console.error('Share error:', JSON.stringify(error))
     return NextResponse.json({ error: error.message || 'Share failed' }, { status: 500 })
   }
 }

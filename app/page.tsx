@@ -59,7 +59,6 @@ const ALL_PROMPTS = [
 
 const GENERATION_STORAGE_KEY = 'c2p_generations'
 
-// Product images mapping
 const PRODUCT_IMAGES: Record<string, string> = {
   'rolled-poster': '/product-rolled-poster.png',
   'matte-canvas': '/product-matte-canvas.png',
@@ -107,7 +106,7 @@ function saveGenerationUsed() {
   } catch {}
 }
 
-// ── Mockup Carousel ────────────────────────────────────────────────────
+// ── Mockup Carousel — natural iOS-style sliding ────────────────────────
 function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   rawImage: string
   mockupUrls: string[]
@@ -115,89 +114,102 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
 }) {
   const allUrls = [rawImage, ...mockupUrls]
   const [idx, setIdx] = useState(0)
-  const [dragX, setDragX] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const prev = useCallback(() => setIdx(i => (i - 1 + allUrls.length) % allUrls.length), [allUrls.length])
-  const next = useCallback(() => setIdx(i => (i + 1) % allUrls.length), [allUrls.length])
+  const goTo = useCallback((newIdx: number) => {
+    setIdx(Math.max(0, Math.min(newIdx, allUrls.length - 1)))
+  }, [allUrls.length])
+
+  const prev = () => goTo((idx - 1 + allUrls.length) % allUrls.length)
+  const next = () => goTo((idx + 1) % allUrls.length)
 
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
-    setIsDragging(true)
-    setDragX(0)
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return
+    if (touchStartX.current === null || touchStartY.current === null) return
     const diffX = e.touches[0].clientX - touchStartX.current
-    const diffY = Math.abs(e.touches[0].clientY - (touchStartY.current || 0))
+    const diffY = Math.abs(e.touches[0].clientY - touchStartY.current)
     if (Math.abs(diffX) > diffY) {
       e.preventDefault()
-      setDragX(diffX)
+      setDragOffset(diffX)
     }
   }
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     const diffX = touchStartX.current - e.changedTouches[0].clientX
-    const diffY = Math.abs((touchStartY.current || 0) - e.changedTouches[0].clientY)
-    setIsDragging(false)
-    setDragX(0)
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+    setDragOffset(0)
+    if (Math.abs(diffX) > 50) {
       diffX > 0 ? next() : prev()
     }
     touchStartX.current = null
     touchStartY.current = null
   }
 
-  return (
-    <div className="flex flex-col items-center w-full select-none overflow-hidden">
-      <div ref={containerRef} className="relative w-full flex items-center justify-center"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}>
+  const containerWidth = containerRef.current?.offsetWidth || 300
+  const totalOffset = -(idx * 100) + (dragOffset / containerWidth) * 100
 
+  return (
+    <div className="flex flex-col items-center w-full select-none">
+      <div className="relative w-full overflow-hidden" ref={containerRef}>
         {allUrls.length > 1 && (
           <button onClick={prev}
-            className="absolute left-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             style={{ fontSize: 18 }}>‹</button>
         )}
 
-        <div className="relative mx-10 sm:mx-12"
-          style={{ transform: isDragging ? `translateX(${dragX * 0.3}px)` : 'translateX(0)', transition: isDragging ? 'none' : 'transform 0.3s ease' }}>
-          <img
-            src={allUrls[idx]}
-            alt={`View ${idx + 1}`}
-            className="rounded-lg object-contain mx-auto"
-            style={{ maxWidth: '100%', maxHeight: 'min(62vw, 520px)', width: 'auto', height: 'auto', display: 'block' }}
-          />
-          {/* Small expand button in corner */}
-          <button
-            onClick={() => onExpand(idx)}
-            className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
-            title="View full size">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-            </svg>
-          </button>
+        {/* Sliding strip */}
+        <div
+          className="flex"
+          style={{
+            transform: `translateX(${totalOffset}%)`,
+            transition: dragOffset !== 0 ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            willChange: 'transform',
+          }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {allUrls.map((url, i) => (
+            <div key={i} className="flex-shrink-0 w-full flex items-center justify-center px-10 sm:px-12">
+              <div className="relative">
+                <img
+                  src={url}
+                  alt={`View ${i + 1}`}
+                  className="rounded-lg object-contain mx-auto"
+                  style={{ maxWidth: '100%', maxHeight: 'min(62vw, 520px)', width: 'auto', height: 'auto', display: 'block' }}
+                  draggable={false}
+                />
+                <button
+                  onClick={() => onExpand(i)}
+                  className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] flex items-center justify-center text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
+                  title="View full size">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {allUrls.length > 1 && (
           <button onClick={next}
-            className="absolute right-0 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             style={{ fontSize: 18 }}>›</button>
         )}
       </div>
 
-      {/* Line indicators */}
       {allUrls.length > 1 && (
         <div className="flex items-center gap-1.5 mt-4">
           {allUrls.map((_, i) => (
-            <button key={i} onClick={() => setIdx(i)}
+            <button key={i} onClick={() => goTo(i)}
               className="rounded-full transition-all duration-300"
               style={{ width: i === idx ? 24 : 8, height: 4, background: i === idx ? 'linear-gradient(90deg,#6d3df3,#ff8c18)' : 'rgba(109,61,243,0.2)' }} />
           ))}
@@ -208,22 +220,25 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   )
 }
 
-// ── Lightbox ────────────────────────────────────────────────────────────
+// ── Lightbox — full screen, natural swipe, always visible controls ──────
 function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: number; onClose: () => void }) {
   const [idx, setIdx] = useState(startIdx)
+  const [dragOffset, setDragOffset] = useState(0)
   const touchStartX = useRef<number | null>(null)
-  const [dragX, setDragX] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Lock body scroll
+    const scrollY = window.scrollY
     document.body.style.overflow = 'hidden'
     document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
     document.body.style.width = '100%'
     return () => {
       document.body.style.overflow = ''
       document.body.style.position = ''
+      document.body.style.top = ''
       document.body.style.width = ''
+      window.scrollTo(0, scrollY)
     }
   }, [])
 
@@ -239,22 +254,18 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
 
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
-    setIsDragging(true)
-    setDragX(0)
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
-    const diffX = e.touches[0].clientX - touchStartX.current
-    setDragX(diffX)
+    setDragOffset(e.touches[0].clientX - touchStartX.current)
   }
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     const diff = touchStartX.current - e.changedTouches[0].clientX
-    setIsDragging(false)
-    setDragX(0)
-    if (Math.abs(diff) > 40) {
+    setDragOffset(0)
+    if (Math.abs(diff) > 50) {
       diff > 0
         ? setIdx(i => (i + 1) % urls.length)
         : setIdx(i => (i - 1 + urls.length) % urls.length)
@@ -262,45 +273,65 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
     touchStartX.current = null
   }
 
+  const containerWidth = containerRef.current?.offsetWidth || window.innerWidth
+  const totalOffset = -(idx * 100) + (dragOffset / containerWidth) * 100
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.95)' }}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.97)' }}>
 
-      {/* X close button with circle */}
-      <button onClick={onClose}
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-all z-10">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>
-      </button>
-
-      {/* Left arrow */}
-      {urls.length > 1 && (
-        <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
-          style={{ fontSize: 22 }}>‹</button>
-      )}
-
-      <div className="w-full max-w-5xl px-16"
-        style={{ transform: isDragging ? `translateX(${dragX * 0.3}px)` : 'translateX(0)', transition: isDragging ? 'none' : 'transform 0.3s ease' }}>
-        <img src={urls[idx]} alt="Full size"
-          className="w-full h-auto rounded-xl shadow-2xl mx-auto"
-          style={{ maxHeight: '85vh', objectFit: 'contain' }} />
+      {/* Top bar — X always visible */}
+      <div className="flex items-center justify-between px-4 pt-safe pt-4 pb-2 flex-shrink-0">
+        <span className="text-white/40 text-sm font-medium">{idx + 1} / {urls.length}</span>
+        <button onClick={onClose}
+          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-all active:scale-95">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
 
-      {/* Right arrow */}
-      {urls.length > 1 && (
-        <button onClick={() => setIdx(i => (i + 1) % urls.length)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
-          style={{ fontSize: 22 }}>›</button>
-      )}
+      {/* Image area */}
+      <div className="flex-1 relative overflow-hidden" ref={containerRef}>
+        {urls.length > 1 && (
+          <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95"
+            style={{ fontSize: 22 }}>‹</button>
+        )}
 
-      {/* Line indicators */}
+        {/* Sliding strip */}
+        <div
+          className="flex h-full"
+          style={{
+            transform: `translateX(${totalOffset}%)`,
+            transition: dragOffset !== 0 ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            willChange: 'transform',
+          }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {urls.map((url, i) => (
+            <div key={i} className="flex-shrink-0 w-full h-full flex items-center justify-center px-14">
+              <img
+                src={url}
+                alt={`View ${i + 1}`}
+                className="max-w-full max-h-full object-contain rounded-lg"
+                draggable={false}
+              />
+            </div>
+          ))}
+        </div>
+
+        {urls.length > 1 && (
+          <button onClick={() => setIdx(i => (i + 1) % urls.length)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95"
+            style={{ fontSize: 22 }}>›</button>
+        )}
+      </div>
+
+      {/* Bottom — line indicators */}
       {urls.length > 1 && (
-        <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5 py-4 flex-shrink-0">
           {urls.map((_, i) => (
             <button key={i} onClick={() => setIdx(i)}
               className="rounded-full transition-all duration-300"
@@ -320,13 +351,15 @@ function ShareButton({ image, prompt, product, size }: {
   size: Size | null
 }) {
   const [sharing, setSharing] = useState(false)
-  const [shared, setShared] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleShare = async () => {
+  const createShareLink = async (): Promise<string | null> => {
+    if (shareUrl) return shareUrl
     setSharing(true)
+    setError(null)
     try {
-      // Upload image and create share link
       const res = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -341,33 +374,45 @@ function ShareButton({ image, prompt, product, size }: {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-
       setShareUrl(data.shareUrl)
-      setShared(true)
+      return data.shareUrl
+    } catch (err: any) {
+      setError('Failed to create share link. Try again.')
+      return null
+    } finally {
+      setSharing(false)
+    }
+  }
 
-      // Use native Web Share API if available (iOS/Android share sheet)
-      if (navigator.share) {
+  const handleShare = async () => {
+    const url = await createShareLink()
+    if (!url) return
+
+    // Use native Web Share API on mobile
+    if (navigator.share) {
+      try {
         await navigator.share({
           title: 'Check out my Create2Print design!',
-          text: `I made this AI-generated ${product?.name} on Create2Print — "${prompt}"`,
-          url: data.shareUrl,
+          text: `I made this AI-generated ${product?.name} on Create2Print!`,
+          url,
         })
-      } else {
-        // Fallback — copy to clipboard
-        await navigator.clipboard.writeText(data.shareUrl)
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') console.error(err)
       }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        console.error('Share error:', err)
-      }
+    } else {
+      // Desktop fallback — copy to clipboard
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
-    setSharing(false)
   }
 
   const handleCopyLink = async () => {
-    if (shareUrl) {
-      await navigator.clipboard.writeText(shareUrl)
-    }
+    const url = await createShareLink()
+    if (!url) return
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const handleSaveImage = () => {
@@ -378,36 +423,43 @@ function ShareButton({ image, prompt, product, size }: {
   }
 
   return (
-    <div className="flex flex-wrap gap-3 justify-center">
-      <button onClick={handleShare} disabled={sharing}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-50">
-        {sharing ? (
-          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/>
-          </svg>
-        )}
-        {sharing ? 'Creating link...' : shared ? 'Share Again' : 'Share'}
-      </button>
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-wrap gap-3 justify-center">
+        {/* Share button — native share on mobile, copy on desktop */}
+        <button onClick={handleShare} disabled={sharing}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shadow-[0_8px_20px_rgba(239,72,167,0.3)]">
+          {sharing ? (
+            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/>
+            </svg>
+          )}
+          {sharing ? 'Creating link...' : 'Share'}
+        </button>
 
-      {shareUrl && (
-        <button onClick={handleCopyLink}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
+        {/* Copy Link */}
+        <button onClick={handleCopyLink} disabled={sharing}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-50">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
-          Copy Link
+          {copied ? '✓ Copied!' : 'Copy Link'}
         </button>
-      )}
 
-      <button onClick={handleSaveImage}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-        </svg>
-        Save Image
-      </button>
+        {/* Save Image */}
+        <button onClick={handleSaveImage}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Save Image
+        </button>
+      </div>
+      {error && <p className="text-red-500 text-xs">{error}</p>}
+      {shareUrl && !error && (
+        <p className="text-xs text-[#8a89a8] text-center">Link expires in 7 days · <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-[#6d3df3] underline">Preview link</a></p>
+      )}
     </div>
   )
 }
@@ -511,7 +563,8 @@ export default function Home() {
 
   const activeImage = generatedImage || uploadedImage
   const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
-  const total = (selectedSize?.price || 0) + 599 // includes shipping
+  const shippingCost = shipping.country === 'US' ? 599 : 1499
+  const total = (selectedSize?.price || 0) + shippingCost
 
   useEffect(() => {
     setGenerationsLeft(loadGenerationsLeft())
@@ -651,7 +704,6 @@ export default function Home() {
             <StepBar step={step} />
           </div>
           <div className="flex items-center gap-3">
-            {/* Google Sign In */}
             {session ? (
               <div className="flex items-center gap-2">
                 <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#ddd9f7]" />
@@ -722,7 +774,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Product cards — using custom images */}
+              {/* Product cards */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {PRODUCTS.map(product => (
                   <div key={product.id}>
@@ -806,7 +858,6 @@ export default function Home() {
               </div>
             </section>
 
-            {/* FAQ */}
             <section className="bg-[#f4f3ff] border-t border-[#e5e6ef]">
               <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
                 <h2 className="font-extrabold text-2xl sm:text-3xl mb-2 text-center text-[#071633]">Frequently Asked Questions</h2>
@@ -958,20 +1009,15 @@ export default function Home() {
                 <MockupCarousel
                   rawImage={activeImage}
                   mockupUrls={mockupUrls}
-                  onExpand={(idx) => openLightbox(idx)}
+                  onExpand={openLightbox}
                 />
               ) : null}
             </div>
 
             {/* Share buttons */}
             {!loadingMockup && !modifying && activeImage && (
-              <div className="mb-5 max-w-2xl mx-auto">
-                <ShareButton
-                  image={activeImage}
-                  prompt={prompt}
-                  product={selectedProduct}
-                  size={selectedSize}
-                />
+              <div className="mb-6 max-w-2xl mx-auto">
+                <ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} />
               </div>
             )}
 
@@ -1060,20 +1106,17 @@ export default function Home() {
                 </select>
               </div>
             </div>
-
-            {/* Shipping cost display */}
             <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
               <div>
                 <div className="text-sm text-[#747aa2]">{selectedProduct?.name} · {selectedSize?.label}</div>
                 <div className="text-xs text-[#8a89a8] mt-0.5">
-                  Shipping: {['US'].includes(shipping.country) ? '$5.99' : '$14.99'} ({shipping.country === 'US' ? 'Domestic' : 'International'})
+                  Shipping: {shipping.country === 'US' ? '$5.99 (Domestic)' : '$14.99 (International)'}
                 </div>
               </div>
               <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
                 {formatPrice((selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499))}
               </span>
             </div>
-
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
             <div className="mt-5">
               <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
@@ -1135,7 +1178,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-[#e5e6ef] bg-white/40">
         <div className="mx-auto flex max-w-[1540px] items-center justify-between px-4 sm:px-8 py-5 text-sm text-[#757b9f]">
           <div className="flex items-center gap-4">
