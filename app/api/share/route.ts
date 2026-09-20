@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
           upsert: false,
         })
 
-      if (uploadError) 
+      if (uploadError) {
         console.error('Upload error:', JSON.stringify(uploadError))
         return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
       }
