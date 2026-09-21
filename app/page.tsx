@@ -760,7 +760,7 @@ export default function Home() {
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
+      <header className={`relative top-0 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl ${lightboxOpen ? 'hidden' : ''}`}>
         <div className="mx-auto flex h-[72px] max-w-[1540px] items-center justify-between px-4 sm:px-8">
           <button onClick={reset} className="flex-shrink-0">
             <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
