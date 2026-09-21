@@ -563,7 +563,8 @@ export default function Home() {
 
   const activeImage = generatedImage || uploadedImage
   const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
-  const shippingCost = shipping.country === 'US' ? 599 : 1499
+  const [shippingCost, setShippingCost] = useState(599)
+  const [loadingShipping, setLoadingShipping] = useState(false)
   const total = (selectedSize?.price || 0) + shippingCost
 
   useEffect(() => {
@@ -571,8 +572,68 @@ export default function Home() {
     const check = () => setIsMobile(window.innerWidth < 640)
     check()
     window.addEventListener('resize', check)
+
+    // Handle order from share page — go straight to shipping
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('from_share') === '1') {
+      try {
+        const stored = sessionStorage.getItem('c2p_share_order')
+        if (stored) {
+          const { productId, sizeName, imageUrl, variantId } = JSON.parse(stored)
+          const product = PRODUCTS.find(p => p.id === productId)
+          const size = product?.sizes.find(s => s.label === sizeName || s.printifyVariantId === Number(variantId))
+          if (product && size) {
+            setSelectedProduct(product)
+            setSelectedSize(size)
+            setGeneratedImage(imageUrl)
+            // Get printify image ID for order placement
+            fetch('/api/mockup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUrl,
+                blueprintId: product.printifyBlueprintId,
+                printProviderId: product.printifyPrintProviderId,
+                variantId: size.printifyVariantId,
+              })
+            }).then(r => r.json()).then(data => {
+              if (data.printifyImageId) setPrintifyImageId(data.printifyImageId)
+              if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
+              else if (data.mockupUrl) setMockupUrls([data.mockupUrl])
+            }).catch(() => {})
+            sessionStorage.removeItem('c2p_share_order')
+            window.history.replaceState({}, '', '/')
+            setStep('shipping')
+          }
+        }
+      } catch {}
+    }
+
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  const fetchShipping = async (country: string, state?: string) => {
+    if (!selectedProduct || !selectedSize) return
+    setLoadingShipping(true)
+    try {
+      const res = await fetch('/api/shipping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blueprintId: selectedProduct.printifyBlueprintId,
+          printProviderId: selectedProduct.printifyPrintProviderId,
+          variantId: selectedSize.printifyVariantId,
+          country,
+          state,
+        })
+      })
+      const data = await res.json()
+      if (data.shipping) setShippingCost(data.shipping)
+    } catch {
+      // Keep current shipping cost on error
+    }
+    setLoadingShipping(false)
+  }
 
   const generateMockup = async (imageUrl: string) => {
     if (!selectedProduct || !selectedSize) return
@@ -661,7 +722,11 @@ export default function Home() {
   const handleShippingContinue = async () => {
     const { firstName, lastName, email, address1, city, zip, country } = shipping
     if (!firstName || !lastName || !email || !address1 || !city || !zip || !country) { setError('Please fill in all required fields'); return }
-    setError(null); await createPaymentIntent(); setStep('payment')
+    setError(null)
+    // Fetch final shipping cost with state for more accuracy
+    await fetchShipping(country, shipping.state)
+    await createPaymentIntent()
+    setStep('payment')
   }
 
   const handleSizeSelect = (size: Size) => {
@@ -1101,7 +1166,11 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input className={inputClass} placeholder="ZIP / Postal code *" value={shipping.zip} onChange={e => setShipping(p => ({ ...p, zip: e.target.value }))} />
-                <select className={inputClass} value={shipping.country} onChange={e => setShipping(p => ({ ...p, country: e.target.value }))}>
+                <select className={inputClass} value={shipping.country} onChange={e => {
+                  const country = e.target.value
+                  setShipping(p => ({ ...p, country }))
+                  fetchShipping(country, shipping.state)
+                }}>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -1110,11 +1179,11 @@ export default function Home() {
               <div>
                 <div className="text-sm text-[#747aa2]">{selectedProduct?.name} · {selectedSize?.label}</div>
                 <div className="text-xs text-[#8a89a8] mt-0.5">
-                  Shipping: {shipping.country === 'US' ? '$5.99 (Domestic)' : '$14.99 (International)'}
+                  Shipping: {loadingShipping ? 'Calculating...' : formatPrice(shippingCost)}
                 </div>
               </div>
               <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
-                {formatPrice((selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499))}
+                {loadingShipping ? '...' : formatPrice(total)}
               </span>
             </div>
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
@@ -1137,17 +1206,17 @@ export default function Home() {
               </div>
               <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
                 <span>Shipping to {shipping.country}</span>
-                <span>{shipping.country === 'US' ? '$5.99' : '$14.99'}</span>
+                <span>{formatPrice(shippingCost)}</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Total due today</span>
                 <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
-                  {formatPrice((selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499))}
+                  {formatPrice(total)}
                 </span>
               </div>
             </div>
             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: '#6d3df3', borderRadius: '12px' } } }}>
-              <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={(selectedSize?.price || 0) + (shipping.country === 'US' ? 599 : 1499)} />
+              <CheckoutForm onSuccess={async () => { await placeOrder() }} amount={total} />
             </Elements>
             <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#b0b5cc]">
               <span>🔒 SSL encrypted</span>
