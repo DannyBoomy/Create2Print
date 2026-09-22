@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
       rates: shipping,
     })
 
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('Shipping error:', JSON.stringify(error?.response?.data || error?.message))
     return NextResponse.json({
-      shipping: country === 'US' ? 599 : 1499,
-      shippingFormatted: country === 'US' ? '$5.99' : '$14.99',
+      shipping: 599,
+      shippingFormatted: '$5.99',
       fallback: true,
     })
   }
