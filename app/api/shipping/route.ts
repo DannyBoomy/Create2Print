@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = await axios.post(
-      `${PRINTIFY_API}/orders/shipping.json`,
+      `${PRINTIFY_API}/shops/${SHOP_ID}/orders/shipping.json`,
       payload,
       { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
     )
@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
     const shipping = res.data
     console.log('Shipping rates:', JSON.stringify(shipping))
 
-    // Return the standard shipping cost in cents
     const standardRate = shipping.standard || shipping.express || 0
 
     return NextResponse.json({
@@ -48,10 +47,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Shipping error:', JSON.stringify(error?.response?.data || error?.message))
-    // Fallback to flat rates if API fails
     return NextResponse.json({
-      shipping: 599,
-      shippingFormatted: '$5.99',
+      shipping: country === 'US' ? 599 : 1499,
+      shippingFormatted: country === 'US' ? '$5.99' : '$14.99',
       fallback: true,
     })
   }
