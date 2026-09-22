@@ -1,111 +1,218 @@
 export type ProductId = 'rolled-poster' | 'matte-canvas' | 'matte-canvas-framed' | 'wall-tapestry'
 
-export interface Size {
+export interface SizeOption {
   label: string
   width: number
   height: number
-  printifyVariantId: number
-  price: number // retail price in cents (production cost × 1.35, rounded to nearest dollar)
-  aspectRatio: string
+  variantId: number
+  price: number
   printAreaWidth: number
   printAreaHeight: number
+}
+
+export interface FinishOption {
+  label: string
+  sizes: SizeOption[]
+}
+
+export interface ColorOption {
+  label: string
+  hex: string
+  finishes: FinishOption[]
 }
 
 export interface Product {
   id: ProductId
   name: string
   description: string
-  material: string
   emoji: string
   printifyBlueprintId: number
   printifyPrintProviderId: number
-  sizes: Size[]
-  uploadAspectRatioNote: string
+  hasColors: boolean
+  hasFinishes: boolean
+  colors: ColorOption[]
 }
 
 export const PRODUCTS: Product[] = [
   {
     id: 'rolled-poster',
     name: 'Rolled Poster',
-    description: 'Premium matte poster print, rolled and shipped in a protective tube.',
-    material: 'Matte paper, museum quality, vibrant color reproduction.',
+    description: 'Premium poster print, rolled and shipped in a protective tube.',
     emoji: '🖼️',
     printifyBlueprintId: 1220,
     printifyPrintProviderId: 99,
-    uploadAspectRatioNote: 'For best results upload an image matching your selected size ratio.',
-    sizes: [
-      // Matte / 8×10" Vertical — cost $4.87 → retail $7
-      { label: '8×10"',  width: 8,  height: 10, printifyVariantId: 101878, price: 700,  aspectRatio: '4:5',   printAreaWidth: 2400,  printAreaHeight: 3000 },
-      // Matte / 11×14" Vertical — cost $4.00 → retail $5
-      { label: '11×14"', width: 11, height: 14, printifyVariantId: 101880, price: 500,  aspectRatio: '11:14', printAreaWidth: 3300,  printAreaHeight: 4200 },
-      // Matte / 18×24" Vertical — cost $5.22 → retail $7
-      { label: '18×24"', width: 18, height: 24, printifyVariantId: 101888, price: 700,  aspectRatio: '3:4',   printAreaWidth: 5400,  printAreaHeight: 7200 },
-      // Matte / 24×36" Vertical — cost $10.38 → retail $14
-      { label: '24×36"', width: 24, height: 36, printifyVariantId: 101893, price: 1400, aspectRatio: '2:3',   printAreaWidth: 7200,  printAreaHeight: 10800 },
+    hasColors: false,
+    hasFinishes: true,
+    colors: [
+      {
+        label: 'Default',
+        hex: '#ffffff',
+        finishes: [
+          {
+            label: 'Matte',
+            sizes: [
+              { label: '8x10"',  width: 8,  height: 10, variantId: 101878, price: 700,  printAreaWidth: 2400,  printAreaHeight: 3000 },
+              { label: '11x14"', width: 11, height: 14, variantId: 101880, price: 500,  printAreaWidth: 3300,  printAreaHeight: 4200 },
+              { label: '18x24"', width: 18, height: 24, variantId: 101888, price: 700,  printAreaWidth: 5400,  printAreaHeight: 7200 },
+              { label: '24x36"', width: 24, height: 36, variantId: 101893, price: 1400, printAreaWidth: 7200,  printAreaHeight: 10800 },
+            ],
+          },
+          {
+            label: 'Semi-Gloss',
+            sizes: [
+              { label: '8x10"',  width: 8,  height: 10, variantId: 92393, price: 700,  printAreaWidth: 2400,  printAreaHeight: 3000 },
+              { label: '11x14"', width: 11, height: 14, variantId: 92395, price: 500,  printAreaWidth: 3300,  printAreaHeight: 4200 },
+              { label: '18x24"', width: 18, height: 24, variantId: 92401, price: 700,  printAreaWidth: 5400,  printAreaHeight: 7200 },
+              { label: '24x36"', width: 24, height: 36, variantId: 92407, price: 1400, printAreaWidth: 7200,  printAreaHeight: 10800 },
+            ],
+          },
+          {
+            label: 'Fine Art',
+            sizes: [
+              { label: '8x10"',  width: 8,  height: 10, variantId: 92392, price: 1300, printAreaWidth: 2400,  printAreaHeight: 3000 },
+              { label: '11x14"', width: 11, height: 14, variantId: 92394, price: 2100, printAreaWidth: 3300,  printAreaHeight: 4200 },
+              { label: '18x24"', width: 18, height: 24, variantId: 92400, price: 2500, printAreaWidth: 5400,  printAreaHeight: 7200 },
+              { label: '24x36"', width: 24, height: 36, variantId: 92406, price: 4000, printAreaWidth: 7200,  printAreaHeight: 10800 },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
     id: 'matte-canvas',
     name: 'Matte Canvas',
-    description: 'Gallery-quality canvas wrap, ready to hang straight out of the box.',
-    material: 'Matte canvas, gallery stretched on pine frame, 1.25" depth.',
+    description: 'Gallery-quality canvas wrap, ready to hang.',
     emoji: '🎨',
     printifyBlueprintId: 1159,
     printifyPrintProviderId: 99,
-    uploadAspectRatioNote: 'Canvas wraps look best with images that match your selected size ratio.',
-    sizes: [
-      // 8×10" Vertical / 1.25" — cost $12.82 → retail $17
-      { label: '8×10"',  width: 8,  height: 10, printifyVariantId: 101413, price: 1700, aspectRatio: '4:5', printAreaWidth: 2400, printAreaHeight: 3000 },
-      // 12×16" Vertical / 1.25" — cost $19.21 → retail $26
-      { label: '12×16"', width: 12, height: 16, printifyVariantId: 91643,  price: 2600, aspectRatio: '3:4', printAreaWidth: 3600, printAreaHeight: 4800 },
-      // 16×20" Vertical / 1.25" — cost $25.61 → retail $35
-      { label: '16×20"', width: 16, height: 20, printifyVariantId: 91646,  price: 3500, aspectRatio: '4:5', printAreaWidth: 4800, printAreaHeight: 6000 },
-      // 20×24" Vertical / 1.25" — cost $35.19 → retail $48
-      { label: '20×24"', width: 20, height: 24, printifyVariantId: 91649,  price: 4800, aspectRatio: '5:6', printAreaWidth: 6000, printAreaHeight: 7200 },
+    hasColors: false,
+    hasFinishes: false,
+    colors: [
+      {
+        label: 'Default',
+        hex: '#ffffff',
+        finishes: [
+          {
+            label: 'Matte',
+            sizes: [
+              { label: '8x10"',  width: 8,  height: 10, variantId: 101413, price: 1700, printAreaWidth: 2400, printAreaHeight: 3000 },
+              { label: '12x16"', width: 12, height: 16, variantId: 91643,  price: 2600, printAreaWidth: 3600, printAreaHeight: 4800 },
+              { label: '16x20"', width: 16, height: 20, variantId: 91646,  price: 3500, printAreaWidth: 4800, printAreaHeight: 6000 },
+              { label: '20x24"', width: 20, height: 24, variantId: 91649,  price: 4800, printAreaWidth: 6000, printAreaHeight: 7200 },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
     id: 'matte-canvas-framed',
     name: 'Framed Canvas',
-    description: 'Matte canvas in a beautiful black frame — arrives ready to hang.',
-    material: 'Matte canvas with solid black wood frame, includes hanging hardware.',
+    description: 'Matte canvas in a solid wood frame, arrives ready to hang.',
     emoji: '🪞',
     printifyBlueprintId: 944,
     printifyPrintProviderId: 99,
-    uploadAspectRatioNote: 'Framed canvas works best with images that match your selected size ratio exactly.',
-    sizes: [
-      // 8×10" Vertical / Black / 1.25" — cost $24.32 → retail $33
-      { label: '8×10"',  width: 8,  height: 10, printifyVariantId: 111821, price: 3300,  aspectRatio: '4:5', printAreaWidth: 2400, printAreaHeight: 3000 },
-      // 12×16" Vertical / Black / 1.25" — cost $37.77 → retail $51
-      { label: '12×16"', width: 12, height: 16, printifyVariantId: 88292,  price: 5100,  aspectRatio: '3:4', printAreaWidth: 3600, printAreaHeight: 4800 },
-      // 16×20" Vertical / Black / 1.25" — cost $47.48 → retail $64
-      { label: '16×20"', width: 16, height: 20, printifyVariantId: 88293,  price: 6400,  aspectRatio: '4:5', printAreaWidth: 4800, printAreaHeight: 6000 },
-      // 18×24" Vertical / Black / 1.25" — cost $54.31 → retail $73
-      { label: '18×24"', width: 18, height: 24, printifyVariantId: 88294,  price: 7300,  aspectRatio: '3:4', printAreaWidth: 5400, printAreaHeight: 7200 },
+    hasColors: true,
+    hasFinishes: false,
+    colors: [
+      {
+        label: 'Black',
+        hex: '#1a1a1a',
+        finishes: [{
+          label: 'Matte',
+          sizes: [
+            { label: '8x10"',  width: 8,  height: 10, variantId: 111821, price: 3300, printAreaWidth: 2400, printAreaHeight: 3000 },
+            { label: '12x16"', width: 12, height: 16, variantId: 88292,  price: 5100, printAreaWidth: 3600, printAreaHeight: 4800 },
+            { label: '16x20"', width: 16, height: 20, variantId: 88293,  price: 6400, printAreaWidth: 4800, printAreaHeight: 6000 },
+            { label: '18x24"', width: 18, height: 24, variantId: 88294,  price: 7300, printAreaWidth: 5400, printAreaHeight: 7200 },
+          ],
+        }],
+      },
+      {
+        label: 'White',
+        hex: '#f0f0f0',
+        finishes: [{
+          label: 'Matte',
+          sizes: [
+            { label: '8x10"',  width: 8,  height: 10, variantId: 111824, price: 3300, printAreaWidth: 2400, printAreaHeight: 3000 },
+            { label: '12x16"', width: 12, height: 16, variantId: 107253, price: 5100, printAreaWidth: 3600, printAreaHeight: 4800 },
+            { label: '16x20"', width: 16, height: 20, variantId: 107255, price: 6400, printAreaWidth: 4800, printAreaHeight: 6000 },
+            { label: '18x24"', width: 18, height: 24, variantId: 107257, price: 7300, printAreaWidth: 5400, printAreaHeight: 7200 },
+          ],
+        }],
+      },
+      {
+        label: 'Espresso',
+        hex: '#3b1f0a',
+        finishes: [{
+          label: 'Matte',
+          sizes: [
+            { label: '8x10"',  width: 8,  height: 10, variantId: 111822, price: 3300, printAreaWidth: 2400, printAreaHeight: 3000 },
+            { label: '12x16"', width: 12, height: 16, variantId: 107252, price: 5100, printAreaWidth: 3600, printAreaHeight: 4800 },
+            { label: '16x20"', width: 16, height: 20, variantId: 107254, price: 6400, printAreaWidth: 4800, printAreaHeight: 6000 },
+            { label: '18x24"', width: 18, height: 24, variantId: 107256, price: 7300, printAreaWidth: 5400, printAreaHeight: 7200 },
+          ],
+        }],
+      },
+      {
+        label: 'Natural',
+        hex: '#c8a97e',
+        finishes: [{
+          label: 'Matte',
+          sizes: [
+            { label: '8x10"',  width: 8,  height: 10, variantId: 244025, price: 3300, printAreaWidth: 2400, printAreaHeight: 3000 },
+            { label: '12x16"', width: 12, height: 16, variantId: 244029, price: 5100, printAreaWidth: 3600, printAreaHeight: 4800 },
+            { label: '16x20"', width: 16, height: 20, variantId: 244032, price: 6400, printAreaWidth: 4800, printAreaHeight: 6000 },
+            { label: '18x24"', width: 18, height: 24, variantId: 244036, price: 7300, printAreaWidth: 5400, printAreaHeight: 7200 },
+          ],
+        }],
+      },
     ],
   },
   {
     id: 'wall-tapestry',
-    name: 'Indoor Wall Tapestry',
-    description: 'Soft woven tapestry, perfect for dorm rooms, bedrooms, and living spaces.',
-    material: '100% polyester, lightweight woven fabric, rod pocket included.',
+    name: 'Wall Tapestry',
+    description: 'Soft woven tapestry, perfect for any room.',
     emoji: '🏴',
     printifyBlueprintId: 241,
     printifyPrintProviderId: 99,
-    uploadAspectRatioNote: 'Tapestries work best with portrait images that fill the frame completely.',
-    sizes: [
-      // 26×36" — cost $16.75 → retail $23
-      { label: '26×36"', width: 26, height: 36, printifyVariantId: 41686, price: 2300, aspectRatio: '29:39', printAreaWidth: 4350,  printAreaHeight: 5850 },
-      // 50×60" — cost $24.59 → retail $33
-      { label: '50×60"', width: 50, height: 60, printifyVariantId: 41687, price: 3300, aspectRatio: '5:6',   printAreaWidth: 7500,  printAreaHeight: 9000 },
-      // 68×80" — cost $36.05 → retail $49
-      { label: '68×80"', width: 68, height: 80, printifyVariantId: 45130, price: 4900, aspectRatio: '17:20', printAreaWidth: 10200, printAreaHeight: 12000 },
+    hasColors: false,
+    hasFinishes: false,
+    colors: [
+      {
+        label: 'Default',
+        hex: '#ffffff',
+        finishes: [{
+          label: 'Standard',
+          sizes: [
+            { label: '26x36"', width: 26, height: 36, variantId: 41686, price: 2300, printAreaWidth: 4350,  printAreaHeight: 5850 },
+            { label: '50x60"', width: 50, height: 60, variantId: 41687, price: 3300, printAreaWidth: 7500,  printAreaHeight: 9000 },
+            { label: '68x80"', width: 68, height: 80, variantId: 45130, price: 4900, printAreaWidth: 10200, printAreaHeight: 12000 },
+          ],
+        }],
+      },
     ],
   },
 ]
 
 export function getProductById(id: ProductId): Product | undefined {
   return PRODUCTS.find(p => p.id === id)
+}
+
+export function getSizes(product: Product, colorLabel: string, finishLabel: string): SizeOption[] {
+  const color = product.colors.find(c => c.label === colorLabel) || product.colors[0]
+  const finish = color.finishes.find(f => f.label === finishLabel) || color.finishes[0]
+  return finish?.sizes || []
+}
+
+export function getFinishes(product: Product, colorLabel: string): FinishOption[] {
+  const color = product.colors.find(c => c.label === colorLabel) || product.colors[0]
+  return color?.finishes || []
+}
+
+export function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
 }
 
 export function getOpenAIImageSize(
@@ -116,8 +223,4 @@ export function getOpenAIImageSize(
   if (ratio > 1.2) return '1536x1024'
   if (ratio < 0.85) return '1024x1536'
   return '1024x1024'
-}
-
-export function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
 }

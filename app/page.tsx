@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { PRODUCTS, Product, Size, formatPrice } from '@/lib/products'
+import { PRODUCTS, Product, SizeOption, ColorOption, FinishOption, formatPrice, getSizes, getFinishes } from '@/lib/products'
+import Link from 'next/link'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -106,7 +107,7 @@ function saveGenerationUsed() {
   } catch {}
 }
 
-// ── Mockup Carousel — natural iOS-style sliding ────────────────────────
+// ── Mockup Carousel ────────────────────────────────────────────────────
 function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   rawImage: string
   mockupUrls: string[]
@@ -163,8 +164,6 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
             className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             style={{ fontSize: 18 }}>‹</button>
         )}
-
-        {/* Sliding strip */}
         <div
           className="flex"
           style={{
@@ -198,14 +197,12 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
             </div>
           ))}
         </div>
-
         {allUrls.length > 1 && (
           <button onClick={next}
             className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow-md border border-[#e0e0ed] text-[#6d3df3] hover:bg-[#f0ecff] transition-all active:scale-95"
             style={{ fontSize: 18 }}>›</button>
         )}
       </div>
-
       {allUrls.length > 1 && (
         <div className="flex items-center gap-1.5 mt-4">
           {allUrls.map((_, i) => (
@@ -220,7 +217,7 @@ function MockupCarousel({ rawImage, mockupUrls, onExpand }: {
   )
 }
 
-// ── Lightbox — full screen, natural swipe, always visible controls ──────
+// ── Lightbox ───────────────────────────────────────────────────────────
 function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: number; onClose: () => void }) {
   const [idx, setIdx] = useState(startIdx)
   const [dragOffset, setDragOffset] = useState(0)
@@ -252,23 +249,17 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
     return () => window.removeEventListener('keydown', h)
   }, [onClose, urls.length])
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
   const onTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     setDragOffset(e.touches[0].clientX - touchStartX.current)
   }
-
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     const diff = touchStartX.current - e.changedTouches[0].clientX
     setDragOffset(0)
     if (Math.abs(diff) > 50) {
-      diff > 0
-        ? setIdx(i => (i + 1) % urls.length)
-        : setIdx(i => (i - 1 + urls.length) % urls.length)
+      diff > 0 ? setIdx(i => (i + 1) % urls.length) : setIdx(i => (i - 1 + urls.length) % urls.length)
     }
     touchStartX.current = null
   }
@@ -277,9 +268,7 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
   const totalOffset = -(idx * 100) + (dragOffset / containerWidth) * 100
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.97)' }}>
-
-      {/* Top bar — X always visible */}
+    <div className="fixed inset-0 z-[99999] flex flex-col" style={{ background: 'rgba(0,0,0,0.97)' }}>
       <div className="flex items-center justify-between px-4 pt-safe pt-4 pb-2 flex-shrink-0">
         <span className="text-white/40 text-sm font-medium">{idx + 1} / {urls.length}</span>
         <button onClick={onClose}
@@ -289,16 +278,12 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
           </svg>
         </button>
       </div>
-
-      {/* Image area */}
       <div className="flex-1 relative overflow-hidden" ref={containerRef}>
         {urls.length > 1 && (
           <button onClick={() => setIdx(i => (i - 1 + urls.length) % urls.length)}
             className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95"
             style={{ fontSize: 22 }}>‹</button>
         )}
-
-        {/* Sliding strip */}
         <div
           className="flex h-full"
           style={{
@@ -312,24 +297,16 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
         >
           {urls.map((url, i) => (
             <div key={i} className="flex-shrink-0 w-full h-full flex items-center justify-center px-14">
-              <img
-                src={url}
-                alt={`View ${i + 1}`}
-                className="max-w-full max-h-full object-contain rounded-lg"
-                draggable={false}
-              />
+              <img src={url} alt={`View ${i + 1}`} className="max-w-full max-h-full object-contain rounded-lg" draggable={false} />
             </div>
           ))}
         </div>
-
         {urls.length > 1 && (
           <button onClick={() => setIdx(i => (i + 1) % urls.length)}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95"
             style={{ fontSize: 22 }}>›</button>
         )}
       </div>
-
-      {/* Bottom — line indicators */}
       {urls.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 py-4 flex-shrink-0">
           {urls.map((_, i) => (
@@ -345,10 +322,7 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
 
 // ── Share Button ───────────────────────────────────────────────────────
 function ShareButton({ image, prompt, product, size }: {
-  image: string
-  prompt: string
-  product: Product | null
-  size: Size | null
+  image: string; prompt: string; product: Product | null; size: SizeOption | null
 }) {
   const [sharing, setSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -357,8 +331,7 @@ function ShareButton({ image, prompt, product, size }: {
 
   const createShareLink = async (): Promise<string | null> => {
     if (shareUrl) return shareUrl
-    setSharing(true)
-    setError(null)
+    setSharing(true); setError(null)
     try {
       const res = await fetch('/api/share', {
         method: 'POST',
@@ -369,7 +342,7 @@ function ShareButton({ image, prompt, product, size }: {
           productId: product?.id,
           productName: product?.name,
           sizeName: size?.label,
-          variantId: size?.printifyVariantId,
+          variantId: size?.variantId,
         })
       })
       const data = await res.json()
@@ -379,31 +352,19 @@ function ShareButton({ image, prompt, product, size }: {
     } catch (err: any) {
       setError('Failed to create share link. Try again.')
       return null
-    } finally {
-      setSharing(false)
-    }
+    } finally { setSharing(false) }
   }
 
   const handleShare = async () => {
     const url = await createShareLink()
     if (!url) return
-
-    // Use native Web Share API on mobile
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Check out my Create2Print design!',
-          text: `I made this AI-generated ${product?.name} on Create2Print!`,
-          url,
-        })
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') console.error(err)
-      }
+        await navigator.share({ title: 'Check out my Create2Print design!', text: `I made this AI-generated ${product?.name} on Create2Print!`, url })
+      } catch (err: any) { if (err?.name !== 'AbortError') console.error(err) }
     } else {
-      // Desktop fallback — copy to clipboard
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -411,8 +372,7 @@ function ShareButton({ image, prompt, product, size }: {
     const url = await createShareLink()
     if (!url) return
     await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
   const handleSaveImage = () => {
@@ -425,7 +385,6 @@ function ShareButton({ image, prompt, product, size }: {
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex flex-wrap gap-3 justify-center">
-        {/* Share button — native share on mobile, copy on desktop */}
         <button onClick={handleShare} disabled={sharing}
           className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shadow-[0_8px_20px_rgba(239,72,167,0.3)]">
           {sharing ? (
@@ -437,8 +396,6 @@ function ShareButton({ image, prompt, product, size }: {
           )}
           {sharing ? 'Creating link...' : 'Share'}
         </button>
-
-        {/* Copy Link */}
         <button onClick={handleCopyLink} disabled={sharing}
           className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-50">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -446,8 +403,6 @@ function ShareButton({ image, prompt, product, size }: {
           </svg>
           {copied ? '✓ Copied!' : 'Copy Link'}
         </button>
-
-        {/* Save Image */}
         <button onClick={handleSaveImage}
           className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -460,6 +415,63 @@ function ShareButton({ image, prompt, product, size }: {
       {shareUrl && !error && (
         <p className="text-xs text-[#8a89a8] text-center">Link expires in 7 days · <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-[#6d3df3] underline">Preview link</a></p>
       )}
+    </div>
+  )
+}
+
+// ── Save Design Button ─────────────────────────────────────────────────
+function SaveDesignButton({ image, prompt, product, size, color, finish }: {
+  image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string
+}) {
+  const { data: session } = useSession()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    if (!session) { signIn('google'); return }
+    if (!product || !size) return
+    setSaving(true); setError(null)
+    try {
+      const res = await fetch('/api/save-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: image,
+          prompt,
+          productId: product.id,
+          productName: product.name,
+          sizeLabel: size.label,
+          color: color !== 'Default' ? color : null,
+          finish: finish !== 'Standard' ? finish : null,
+          variantId: size.variantId,
+          price: size.price,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSaved(true)
+    } catch (err: any) {
+      setError('Failed to save. Try again.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button onClick={handleSave} disabled={saving || saved}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-60">
+        {saving ? (
+          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        ) : saved ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        )}
+        {saving ? 'Saving...' : saved ? 'Saved!' : session ? 'Save Design' : 'Sign in to Save'}
+      </button>
+      {error && <p className="text-red-500 text-[10px]">{error}</p>}
     </div>
   )
 }
@@ -538,7 +550,9 @@ export default function Home() {
   const { data: session } = useSession()
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [selectedSize, setSelectedSize] = useState<Size | null>(null)
+  const [selectedColor, setSelectedColor] = useState<string>('Default')
+  const [selectedFinish, setSelectedFinish] = useState<string>('')
+  const [selectedSize, setSelectedSize] = useState<SizeOption | null>(null)
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
   const [prompt, setPrompt] = useState('')
   const [modifyPrompt, setModifyPrompt] = useState('')
@@ -567,50 +581,43 @@ export default function Home() {
   const [loadingShipping, setLoadingShipping] = useState(false)
   const total = (selectedSize?.price || 0) + shippingCost
 
+  // Derived color/finish/size options
+  const colorOptions: ColorOption[] = selectedProduct?.colors || []
+  const finishOptions: FinishOption[] = selectedProduct ? getFinishes(selectedProduct, selectedColor) : []
+  const sizeOptions: SizeOption[] = (selectedProduct && selectedFinish) ? getSizes(selectedProduct, selectedColor, selectedFinish) : []
+
   useEffect(() => {
     setGenerationsLeft(loadGenerationsLeft())
     const check = () => setIsMobile(window.innerWidth < 640)
     check()
     window.addEventListener('resize', check)
-
-    // Handle order from share page — go straight to shipping
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('from_share') === '1') {
-      try {
-        const stored = sessionStorage.getItem('c2p_share_order')
-        if (stored) {
-          const { productId, sizeName, imageUrl, variantId } = JSON.parse(stored)
-          const product = PRODUCTS.find(p => p.id === productId)
-          const size = product?.sizes.find(s => s.label === sizeName || s.printifyVariantId === Number(variantId))
-          if (product && size) {
-            setSelectedProduct(product)
-            setSelectedSize(size)
-            setGeneratedImage(imageUrl)
-            // Get printify image ID for order placement
-            fetch('/api/mockup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                imageUrl,
-                blueprintId: product.printifyBlueprintId,
-                printProviderId: product.printifyPrintProviderId,
-                variantId: size.printifyVariantId,
-              })
-            }).then(r => r.json()).then(data => {
-              if (data.printifyImageId) setPrintifyImageId(data.printifyImageId)
-              if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
-              else if (data.mockupUrl) setMockupUrls([data.mockupUrl])
-            }).catch(() => {})
-            sessionStorage.removeItem('c2p_share_order')
-            window.history.replaceState({}, '', '/')
-            setStep('shipping')
-          }
-        }
-      } catch {}
-    }
-
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  // When product changes, reset color/finish/size
+  const handleProductSelect = (product: Product) => {
+    setSelectedProduct(product)
+    setSelectedColor(product.colors[0]?.label || 'Default')
+    // Auto-select finish if only one
+    const defaultFinishes = product.colors[0]?.finishes || []
+    setSelectedFinish(defaultFinishes.length === 1 ? defaultFinishes[0].label : '')
+    setSelectedSize(null)
+  }
+
+  // When color changes, reset finish and size
+  const handleColorSelect = (colorLabel: string) => {
+    setSelectedColor(colorLabel)
+    if (!selectedProduct) return
+    const finishes = getFinishes(selectedProduct, colorLabel)
+    setSelectedFinish(finishes.length === 1 ? finishes[0].label : '')
+    setSelectedSize(null)
+  }
+
+  // When finish changes, reset size
+  const handleFinishSelect = (finishLabel: string) => {
+    setSelectedFinish(finishLabel)
+    setSelectedSize(null)
+  }
 
   const fetchShipping = async (country: string, state?: string) => {
     if (!selectedProduct || !selectedSize) return
@@ -622,26 +629,29 @@ export default function Home() {
         body: JSON.stringify({
           blueprintId: selectedProduct.printifyBlueprintId,
           printProviderId: selectedProduct.printifyPrintProviderId,
-          variantId: selectedSize.printifyVariantId,
+          variantId: selectedSize.variantId,
           country,
           state,
         })
       })
       const data = await res.json()
       if (data.shipping) setShippingCost(data.shipping)
-    } catch {
-      // Keep current shipping cost on error
-    }
+    } catch {}
     setLoadingShipping(false)
   }
 
-  const generateMockup = async (imageUrl: string) => {
+  const generateMockup = async (imageUrl: string, variantId?: number) => {
     if (!selectedProduct || !selectedSize) return
     setLoadingMockup(true)
     try {
       const res = await fetch('/api/mockup', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId })
+        body: JSON.stringify({
+          imageUrl,
+          blueprintId: selectedProduct.printifyBlueprintId,
+          printProviderId: selectedProduct.printifyPrintProviderId,
+          variantId: variantId || selectedSize.variantId
+        })
       })
       const data = await res.json()
       if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
@@ -653,7 +663,10 @@ export default function Home() {
 
   const createPaymentIntent = async () => {
     try {
-      const res = await fetch('/api/payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label }) })
+      const res = await fetch('/api/payment', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label })
+      })
       const data = await res.json()
       if (data.clientSecret) setClientSecret(data.clientSecret)
     } catch { setError('Failed to initialize payment. Please try again.') }
@@ -662,7 +675,16 @@ export default function Home() {
   const placeOrder = async () => {
     if (!printifyImageId || !selectedProduct || !selectedSize) return
     try {
-      const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ printifyImageId, blueprintId: selectedProduct.printifyBlueprintId, printProviderId: selectedProduct.printifyPrintProviderId, variantId: selectedSize.printifyVariantId, shipping }) })
+      const res = await fetch('/api/order', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printifyImageId,
+          blueprintId: selectedProduct.printifyBlueprintId,
+          printProviderId: selectedProduct.printifyPrintProviderId,
+          variantId: selectedSize.variantId,
+          shipping
+        })
+      })
       const data = await res.json()
       if (data.orderId) setOrderId(data.orderId)
     } catch {}
@@ -723,13 +745,12 @@ export default function Home() {
     const { firstName, lastName, email, address1, city, zip, country } = shipping
     if (!firstName || !lastName || !email || !address1 || !city || !zip || !country) { setError('Please fill in all required fields'); return }
     setError(null)
-    // Fetch final shipping cost with state for more accuracy
     await fetchShipping(country, shipping.state)
     await createPaymentIntent()
     setStep('payment')
   }
 
-  const handleSizeSelect = (size: Size) => {
+  const handleSizeSelect = (size: SizeOption) => {
     setSelectedSize(size)
     if (isMobile && selectedProduct) setTimeout(() => setStep('create'), 150)
   }
@@ -740,7 +761,7 @@ export default function Home() {
   }
 
   const reset = () => {
-    setStep('product'); setSelectedProduct(null); setSelectedSize(null)
+    setStep('product'); setSelectedProduct(null); setSelectedColor('Default'); setSelectedFinish(''); setSelectedSize(null)
     setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
     setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null)
     setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
@@ -752,6 +773,19 @@ export default function Home() {
   const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-6 font-semibold"
   const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
 
+  // Get minimum price for product card display
+  const getMinPrice = (product: Product): number => {
+    let min = Infinity
+    for (const color of product.colors) {
+      for (const finish of color.finishes) {
+        for (const size of finish.sizes) {
+          if (size.price < min) min = size.price
+        }
+      }
+    }
+    return min === Infinity ? 0 : min
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -760,7 +794,7 @@ export default function Home() {
       )}
 
       {/* Header */}
-      <header className={`relative top-0 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl ${lightboxOpen ? 'hidden' : ''}`}>
+      <header style={{ display: lightboxOpen ? 'none' : undefined }} className="relative top-0 border-b border-slate-200/70 bg-white/95 shadow-[0_4px_24px_rgba(35,31,84,0.05)] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1540px] items-center justify-between px-4 sm:px-8">
           <button onClick={reset} className="flex-shrink-0">
             <img src="/logo.png" alt="Create2Print" className="h-[48px] w-auto object-contain" />
@@ -769,6 +803,14 @@ export default function Home() {
             <StepBar step={step} />
           </div>
           <div className="flex items-center gap-3">
+            {session && (
+              <Link href="/saved" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#e0e0ed] bg-white text-xs font-bold text-[#071633] hover:border-[#6d3df3] hover:text-[#6d3df3] transition-all shadow-sm">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span className="hidden sm:inline">Saved</span>
+              </Link>
+            )}
             {session ? (
               <div className="flex items-center gap-2">
                 <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#ddd9f7]" />
@@ -831,11 +873,6 @@ export default function Home() {
                       Describe any artwork. We generate it, print it, and ship it to your door.
                     </p>
                   </div>
-                  <div className="absolute right-8 top-0 hidden xl:block">
-                    <div className="rotate-[4deg] rounded-sm border-[10px] border-[#9a633d] bg-white p-3 shadow-[0_24px_50px_rgba(29,22,60,0.20)]">
-                      <div className="h-[220px] w-[175px] bg-gradient-to-br from-[#1a0a3e] via-[#7b2fb3] to-[#ff6b35]" />
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -843,7 +880,7 @@ export default function Home() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {PRODUCTS.map(product => (
                   <div key={product.id}>
-                    <article onClick={() => { setSelectedProduct(product); setSelectedSize(null) }}
+                    <article onClick={() => handleProductSelect(product)}
                       className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
                       <div className="overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
                         <img
@@ -854,11 +891,11 @@ export default function Home() {
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                        <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.material}</p>
+                        <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
                             <div className="text-[11px] text-[#747aa2]">from</div>
-                            <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(product.sizes[0].price)}</span>
+                            <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(getMinPrice(product))}</span>
                           </div>
                           <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
                         </div>
@@ -866,27 +903,70 @@ export default function Home() {
                     </article>
 
                     {selectedProduct?.id === product.id && (
-                      <div className="mt-3">
-                        <div className="mb-2 flex items-end justify-between">
-                          <h2 className="text-[17px] font-extrabold">Select Size</h2>
-                          {isMobile
-                            ? <p className="text-xs text-[#6d3df3] font-semibold">Tap size to continue →</p>
-                            : <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {product.sizes.map(size => {
-                            const shape = getSizeShape(size.width, size.height)
-                            const sel = selectedSize?.label === size.label
-                            return (
-                              <button key={size.label} type="button" onClick={() => handleSizeSelect(size)}
-                                className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
-                                <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
-                                <span className="text-[13px] font-extrabold">{size.label}</span>
-                                <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
+                      <div className="mt-3 space-y-4">
+
+                        {/* Color selector */}
+                        {product.hasColors && (
+                          <div>
+                            <h2 className="text-[15px] font-extrabold mb-2">Frame Color</h2>
+                            <div className="flex flex-wrap gap-2">
+                              {colorOptions.map(color => (
+                                <button
+                                  key={color.label}
+                                  onClick={() => handleColorSelect(color.label)}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold transition-all ${selectedColor === color.label ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0] bg-white hover:border-[#6d3df3]'}`}
+                                >
+                                  <span className="w-4 h-4 rounded-full border border-black/10 flex-shrink-0" style={{ background: color.hex }} />
+                                  {color.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Finish selector */}
+                        {product.hasFinishes && (
+                          <div>
+                            <h2 className="text-[15px] font-extrabold mb-2">Finish</h2>
+                            <div className="flex flex-wrap gap-2">
+                              {finishOptions.map(finish => (
+                                <button
+                                  key={finish.label}
+                                  onClick={() => handleFinishSelect(finish.label)}
+                                  className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all ${selectedFinish === finish.label ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10 text-[#6d3df3]' : 'border-[#e7e7f0] bg-white text-[#071633] hover:border-[#6d3df3]'}`}
+                                >
+                                  {finish.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Size selector — only show after finish selected (or if no finish choice) */}
+                        {selectedFinish && (
+                          <div>
+                            <div className="mb-2 flex items-end justify-between">
+                              <h2 className="text-[15px] font-extrabold">Select Size</h2>
+                              {isMobile
+                                ? <p className="text-xs text-[#6d3df3] font-semibold">Tap size to continue →</p>
+                                : <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2.5">
+                              {sizeOptions.map(size => {
+                                const shape = getSizeShape(size.width, size.height)
+                                const sel = selectedSize?.variantId === size.variantId
+                                return (
+                                  <button key={size.variantId} type="button" onClick={() => handleSizeSelect(size)}
+                                    className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
+                                    <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
+                                    <span className="text-[13px] font-extrabold">{size.label}</span>
+                                    <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -900,7 +980,7 @@ export default function Home() {
                   ✦ CONTINUE — DESIGN YOUR ART →
                 </button>
                 <p className="mt-2 text-sm text-[#878cac]">
-                  {!selectedProduct ? 'Select a product to continue' : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
+                  {!selectedProduct ? 'Select a product to continue' : !selectedFinish ? (selectedProduct.hasFinishes ? 'Select a finish to continue' : 'Select a color to continue') : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
                 </p>
               </div>
 
@@ -945,7 +1025,9 @@ export default function Home() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold">{selectedSize?.label} ({selectedSize?.width}" × {selectedSize?.height}") · {selectedSize?.aspectRatio}</div>
+                <div className="text-sm text-[#6d3df3] font-semibold">
+                  {[selectedColor !== 'Default' ? selectedColor : null, selectedFinish !== 'Standard' && selectedFinish !== 'Matte' ? selectedFinish : null, selectedSize?.label].filter(Boolean).join(' · ')}
+                </div>
               </div>
               <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
             </div>
@@ -1018,7 +1100,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-[#6d3df3] flex-shrink-0">~30s</span>
                     </div>
                     <p className="text-center text-[#8a89a8] text-xs animate-pulse">
-                      Creating your artwork optimized for {selectedSize?.label} ({selectedSize?.aspectRatio} ratio)...
+                      Creating your artwork for {selectedSize?.label}...
                     </p>
                   </div>
                 )}
@@ -1032,8 +1114,7 @@ export default function Home() {
                     <span className="text-xl flex-shrink-0">⚠️</span>
                     <div>
                       <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
-                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.uploadAspectRatioNote}</div>
-                      <div className="text-xs mt-1 font-bold text-amber-900">Required ratio for {selectedSize?.label}: <strong>{selectedSize?.aspectRatio}</strong></div>
+                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.description}</div>
                     </div>
                   </div>
                 </div>
@@ -1057,7 +1138,9 @@ export default function Home() {
               <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">
                 {loadingMockup || modifying ? 'Generating views...' : 'Looking great! 🎉'}
               </h2>
-              <p className="text-[#747aa2] text-sm">{selectedProduct?.name} · <strong>{selectedSize?.label}</strong> ({selectedSize?.width}" × {selectedSize?.height}")</p>
+              <p className="text-[#747aa2] text-sm">
+                {selectedProduct?.name} · {[selectedColor !== 'Default' ? selectedColor : null, selectedSize?.label].filter(Boolean).join(' · ')}
+              </p>
             </div>
 
             <div className="flex justify-center mb-4 w-full">
@@ -1071,28 +1154,23 @@ export default function Home() {
                   </p>
                 </div>
               ) : activeImage ? (
-                <MockupCarousel
-                  rawImage={activeImage}
-                  mockupUrls={mockupUrls}
-                  onExpand={openLightbox}
-                />
+                <MockupCarousel rawImage={activeImage} mockupUrls={mockupUrls} onExpand={openLightbox} />
               ) : null}
             </div>
 
-            {/* Share buttons */}
+            {/* Share + Save buttons */}
             {!loadingMockup && !modifying && activeImage && (
-              <div className="mb-6 max-w-2xl mx-auto">
+              <div className="mb-6 max-w-2xl mx-auto space-y-3">
                 <ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} />
-              </div>
-            )}
-
-            {!loadingMockup && !modifying && selectedSize && (
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
-                  📐 {selectedSize.width}" wide × {selectedSize.height}" tall
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-[#f0ecff] text-[#5924f5] border border-[#ddd9f7]">
-                  {selectedSize.aspectRatio} ratio
+                <div className="flex justify-center">
+                  <SaveDesignButton
+                    image={activeImage}
+                    prompt={prompt}
+                    product={selectedProduct}
+                    size={selectedSize}
+                    color={selectedColor}
+                    finish={selectedFinish}
+                  />
                 </div>
               </div>
             )}
