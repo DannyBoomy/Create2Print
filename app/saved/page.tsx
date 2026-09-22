@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSession, signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/products'
 
@@ -8,16 +9,19 @@ interface SavedDesign {
   id: string
   image_url: string
   prompt: string
+  product_id: string
   product_name: string
   size_label: string
   color: string | null
   finish: string | null
+  variant_id: number
   price: number
   created_at: string
 }
 
 export default function SavedPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [designs, setDesigns] = useState<SavedDesign[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -31,13 +35,29 @@ export default function SavedPage() {
       const res = await fetch('/api/saved-designs')
       const data = await res.json()
       setDesigns(data.designs || [])
-    } catch { }
+    } catch {}
     setLoading(false)
   }
 
-  const deleteDesign = async (id: string) => {
+  const deleteDesign = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
     await fetch(`/api/saved-designs?id=${id}`, { method: 'DELETE' })
     setDesigns(d => d.filter(x => x.id !== id))
+  }
+
+  const openDesign = (design: SavedDesign) => {
+    // Store design in sessionStorage so home page can pick it up
+    sessionStorage.setItem('c2p_saved_order', JSON.stringify({
+      productId: design.product_id,
+      sizeLabel: design.size_label,
+      color: design.color,
+      finish: design.finish,
+      variantId: design.variant_id,
+      imageUrl: design.image_url,
+      prompt: design.prompt,
+      price: design.price,
+    }))
+    router.push('/?from_saved=1')
   }
 
   if (status === 'loading' || loading) {
@@ -70,6 +90,7 @@ export default function SavedPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
+            <Link href="/" className="text-xs text-[#8a89a8] hover:text-[#6d3df3] font-semibold mb-2 block">← Back</Link>
             <h1 className="text-2xl font-bold text-[#071633]">Saved Designs</h1>
             <p className="text-[#747aa2] text-sm mt-0.5">{designs.length} design{designs.length !== 1 ? 's' : ''} saved</p>
           </div>
@@ -90,12 +111,21 @@ export default function SavedPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {designs.map(design => (
-              <div key={design.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-[#ede9fe] group">
+              <div
+                key={design.id}
+                onClick={() => openDesign(design)}
+                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-[#ede9fe] group cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+              >
                 <div className="relative aspect-square bg-[#f3f0ff]">
                   <img src={design.image_url} alt={design.prompt} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full px-3 py-1 text-xs font-bold text-[#6d3df3] shadow">
+                      Open →
+                    </span>
+                  </div>
                   <button
-                    onClick={() => deleteDesign(design.id)}
-                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    onClick={(e) => deleteDesign(design.id, e)}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
                   >
                     ✕
                   </button>

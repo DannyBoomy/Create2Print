@@ -403,13 +403,7 @@ function ShareButton({ image, prompt, product, size }: {
           </svg>
           {copied ? '✓ Copied!' : 'Copy Link'}
         </button>
-        <button onClick={handleSaveImage}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-          </svg>
-          Save Image
-        </button>
+
       </div>
       {error && <p className="text-red-500 text-xs">{error}</p>}
       {shareUrl && !error && (
@@ -591,6 +585,52 @@ export default function Home() {
     const check = () => setIsMobile(window.innerWidth < 640)
     check()
     window.addEventListener('resize', check)
+
+    // Handle navigation from saved designs page
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('from_saved') === '1') {
+      try {
+        const stored = sessionStorage.getItem('c2p_saved_order')
+        if (stored) {
+          const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt } = JSON.parse(stored)
+          const product = PRODUCTS.find(p => p.id === productId)
+          if (product) {
+            setSelectedProduct(product)
+            const colorLabel = color || product.colors[0]?.label || 'Default'
+            setSelectedColor(colorLabel)
+            const finishLabel = finish || product.colors[0]?.finishes[0]?.label || 'Matte'
+            setSelectedFinish(finishLabel)
+            const colorObj = product.colors.find(c => c.label === colorLabel) || product.colors[0]
+            const finishObj = colorObj?.finishes.find(f => f.label === finishLabel) || colorObj?.finishes[0]
+            const sizeObj = finishObj?.sizes.find(s => s.variantId === Number(variantId) || s.label === sizeLabel)
+            if (sizeObj) {
+              setSelectedSize(sizeObj)
+              setGeneratedImage(imageUrl)
+              if (savedPrompt) setPrompt(savedPrompt)
+              setLoadingMockup(true)
+              fetch('/api/mockup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  imageUrl,
+                  blueprintId: product.printifyBlueprintId,
+                  printProviderId: product.printifyPrintProviderId,
+                  variantId: sizeObj.variantId,
+                })
+              }).then(r => r.json()).then(data => {
+                if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
+                if (data.printifyImageId) setPrintifyImageId(data.printifyImageId)
+                setLoadingMockup(false)
+              }).catch(() => { setLoadingMockup(false) })
+            }
+            sessionStorage.removeItem('c2p_saved_order')
+            window.history.replaceState({}, '', '/')
+            setStep('preview')
+          }
+        }
+      } catch {}
+    }
+
     return () => window.removeEventListener('resize', check)
   }, [])
 
@@ -700,7 +740,10 @@ export default function Home() {
         body: JSON.stringify({ prompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) {
+        if (res.status === 429) setGenerationsLeft(0)
+        throw new Error(data.error)
+      }
       setGeneratedImage(data.imageUrl)
       saveGenerationUsed()
       setGenerationsLeft(loadGenerationsLeft())
@@ -720,7 +763,10 @@ export default function Home() {
         body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) {
+        if (res.status === 429) setGenerationsLeft(0)
+        throw new Error(data.error)
+      }
       setGeneratedImage(data.imageUrl)
       saveGenerationUsed()
       setGenerationsLeft(loadGenerationsLeft())
@@ -813,8 +859,11 @@ export default function Home() {
             )}
             {session ? (
               <div className="flex items-center gap-2">
-                <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#ddd9f7]" />
-                <button onClick={() => signOut()} className="hidden sm:block text-xs text-[#8a89a8] hover:text-[#6d3df3] font-semibold transition-colors">Sign out</button>
+                <button onClick={() => signOut()} className="flex items-center gap-2 group">
+                  <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#ddd9f7]" />
+                  <span className="hidden sm:block text-xs text-[#8a89a8] hover:text-[#6d3df3] font-semibold transition-colors">Sign out</span>
+                </button>
+                <button onClick={() => signOut()} className="sm:hidden text-xs text-[#8a89a8] font-semibold px-2 py-1 rounded-lg border border-[#e0e0ed]">Sign out</button>
               </div>
             ) : (
               <button onClick={() => signIn('google')}
@@ -1157,6 +1206,67 @@ export default function Home() {
                 <MockupCarousel rawImage={activeImage} mockupUrls={mockupUrls} onExpand={openLightbox} />
               ) : null}
             </div>
+
+            {/* Color / Finish switcher on preview */}
+            {!loadingMockup && !modifying && activeImage && selectedProduct && (selectedProduct.hasColors || selectedProduct.hasFinishes) && (
+              <div className="mb-4 max-w-2xl mx-auto rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-4">
+                <p className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-3">Change Options</p>
+                {selectedProduct.hasColors && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-[#071633] mb-2">Frame Color</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProduct.colors.map(color => (
+                        <button
+                          key={color.label}
+                          onClick={() => {
+                            handleColorSelect(color.label)
+                            if (activeImage && selectedSize) {
+                              const newColor = selectedProduct.colors.find(c => c.label === color.label)
+                              const newFinish = newColor?.finishes[0]
+                              const newSize = newFinish?.sizes.find(s => s.label === selectedSize.label) || newFinish?.sizes[0]
+                              if (newSize) {
+                                setSelectedSize(newSize)
+                                setSelectedFinish(newFinish?.label || '')
+                                generateMockup(activeImage, newSize.variantId)
+                              }
+                            }
+                          }}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${selectedColor === color.label ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10 text-[#6d3df3]' : 'border-[#e7e7f0] bg-white text-[#071633] hover:border-[#6d3df3]'}`}
+                        >
+                          <span className="w-3 h-3 rounded-full border border-black/10 flex-shrink-0" style={{ background: color.hex }} />
+                          {color.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedProduct.hasFinishes && (
+                  <div>
+                    <p className="text-xs font-semibold text-[#071633] mb-2">Finish</p>
+                    <div className="flex flex-wrap gap-2">
+                      {getFinishes(selectedProduct, selectedColor).map(finish => (
+                        <button
+                          key={finish.label}
+                          onClick={() => {
+                            handleFinishSelect(finish.label)
+                            if (activeImage && selectedSize) {
+                              const newSize = finish.sizes.find(s => s.label === selectedSize.label) || finish.sizes[0]
+                              if (newSize) {
+                                setSelectedSize(newSize)
+                                generateMockup(activeImage, newSize.variantId)
+                              }
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${selectedFinish === finish.label ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10 text-[#6d3df3]' : 'border-[#e7e7f0] bg-white text-[#071633] hover:border-[#6d3df3]'}`}
+                        >
+                          {finish.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Share + Save buttons */}
             {!loadingMockup && !modifying && activeImage && (

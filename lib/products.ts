@@ -122,6 +122,8 @@ export const PRODUCTS: Product[] = [
         finishes: [{
           label: 'Matte',
           sizes: [
+            // Blueprint 944 print areas — framed canvas wraps include frame border
+            // so print area is sized to the canvas portion only
             { label: '8x10"',  width: 8,  height: 10, variantId: 111821, price: 3300, printAreaWidth: 2400, printAreaHeight: 3000 },
             { label: '12x16"', width: 12, height: 16, variantId: 88292,  price: 5100, printAreaWidth: 3600, printAreaHeight: 4800 },
             { label: '16x20"', width: 16, height: 20, variantId: 88293,  price: 6400, printAreaWidth: 4800, printAreaHeight: 6000 },

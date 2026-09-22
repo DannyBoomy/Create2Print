@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { getServerSession } from 'next-auth'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-const generationCounts = new Map<string, number>()
+const ADMIN_EMAIL = 'dborsykowsky@gmail.com'
+
+const generationCounts = new Map<string, { count: number; timestamp: number }>()
 
 function getOpenAIImageSize(width: number, height: number): '1024x1024' | '1536x1024' | '1024x1536' {
   const ratio = width / height
@@ -25,22 +28,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-      req.headers.get('x-real-ip') ||
-      'unknown'
+    // Admin bypass — unlimited generations
+    const session = await getServerSession()
+    const isAdmin = session?.user?.email === ADMIN_EMAIL
 
-    const count = generationCounts.get(ip) || 0
+    if (!isAdmin) {
+      const ip =
+        req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+        req.headers.get('x-real-ip') ||
+        'unknown'
 
-    if (count >= 3) {
-      return NextResponse.json(
-        { error: 'You have used all 3 free generations. Please complete a purchase to continue.' },
-        { status: 429 }
-      )
+      const now = Date.now()
+      const existing = generationCounts.get(ip)
+
+      // Reset if older than 24 hours
+      if (existing && now - existing.timestamp > 24 * 60 * 60 * 1000) {
+        generationCounts.delete(ip)
+      }
+
+      const current = generationCounts.get(ip)
+      const count = current?.count || 0
+
+      if (count >= 3) {
+        return NextResponse.json(
+          { error: 'You have used all 3 free generations. Please complete a purchase to continue.' },
+          { status: 429 }
+        )
+      }
+
+      generationCounts.set(ip, { count: count + 1, timestamp: current?.timestamp || now })
     }
-
-    generationCounts.set(ip, count + 1)
-    setTimeout(() => generationCounts.delete(ip), 24 * 60 * 60 * 1000)
 
     const size = getOpenAIImageSize(Number(width), Number(height))
     const cleanPrompt = sanitizePrompt(prompt)
@@ -61,11 +78,9 @@ export async function POST(req: NextRequest) {
     }
 
     const finalImageUrl = imageUrl || `data:image/png;base64,${b64}`
-    console.log('Image type returned:', imageUrl ? 'https URL' : 'base64')
 
     return NextResponse.json({
       imageUrl: finalImageUrl,
-      generationsLeft: 3 - (count + 1),
       size,
     })
 
