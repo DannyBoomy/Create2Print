@@ -8,20 +8,59 @@ const ADMIN_EMAIL = 'dborsykowsky@gmail.com'
 
 const generationCounts = new Map<string, { count: number; timestamp: number }>()
 
-function getOpenAIImageSize(width: number, height: number): '1024x1024' | '1536x1024' | '1024x1536' {
-  const ratio = width / height
-  const options = [
-    { size: '1024x1024' as const, ratio: 1.000 },
-    { size: '1536x1024' as const, ratio: 1.500 },
-    { size: '1024x1536' as const, ratio: 0.667 },
-  ]
-  let best = options[0]
+/**
+ * Find the optimal OpenAI image dimensions for a given print area ratio.
+ * Rules:
+ * - Width and height must be multiples of 16
+ * - Aspect ratio between 1:3 and 3:1
+ * - Longest edge up to 3840px
+ * - Total area between 655,360 and 8,294,400 pixels
+ */
+function getOptimalOpenAISize(printAreaWidth: number, printAreaHeight: number): { width: number; height: number } {
+  const targetRatio = printAreaWidth / printAreaHeight
+
+  // Target a good quality size — aim for ~2048px on the longer edge
+  const TARGET_LONG_EDGE = 2048
+  const MIN_AREA = 655360
+  const MAX_AREA = 8294400
+  const MAX_EDGE = 3840
+  const MULTIPLE = 16
+
+  let bestWidth = 1024
+  let bestHeight = 1024
   let bestDiff = Infinity
-  for (const option of options) {
-    const diff = Math.abs(ratio - option.ratio)
-    if (diff < bestDiff) { bestDiff = diff; best = option }
+
+  // Try heights from 512 to 3840 in multiples of 16
+  for (let h = 512; h <= MAX_EDGE; h += MULTIPLE) {
+    // Calculate ideal width for this height
+    const idealWidth = targetRatio * h
+    // Round to nearest multiple of 16
+    const w = Math.round(idealWidth / MULTIPLE) * MULTIPLE
+
+    if (w < 512 || w > MAX_EDGE) continue
+
+    const area = w * h
+    if (area < MIN_AREA || area > MAX_AREA) continue
+
+    const ratio = w / h
+    if (ratio < 1/3 || ratio > 3) continue
+
+    const diff = Math.abs(ratio - targetRatio)
+
+    // Prefer solutions closer to our target long edge for quality
+    const longEdge = Math.max(w, h)
+    const edgePenalty = Math.abs(longEdge - TARGET_LONG_EDGE) / TARGET_LONG_EDGE * 0.001
+
+    if (diff + edgePenalty < bestDiff) {
+      bestDiff = diff + edgePenalty
+      bestWidth = w
+      bestHeight = h
+    }
   }
-  return best.size
+
+  console.log(`Print area ${printAreaWidth}x${printAreaHeight} (ratio ${targetRatio.toFixed(4)}) → OpenAI ${bestWidth}x${bestHeight} (ratio ${(bestWidth/bestHeight).toFixed(4)}, diff ${(bestDiff*100).toFixed(3)}%)`)
+
+  return { width: bestWidth, height: bestHeight }
 }
 
 function sanitizePrompt(prompt: string): string {
@@ -67,16 +106,15 @@ export async function POST(req: NextRequest) {
       generationCounts.set(ip, { count: count + 1, timestamp: current?.timestamp || now })
     }
 
-    const size = getOpenAIImageSize(Number(width), Number(height))
-    const cleanPrompt = sanitizePrompt(prompt) + ', full scene, zoomed out, complete composition, everything fitting in the image'
-
-    console.log(`Generating at ${size} for print area ${width}x${height}`)
+    // Get optimal dimensions for this print area
+    const { width: aiWidth, height: aiHeight } = getOptimalOpenAISize(Number(width), Number(height))
+    const cleanPrompt = sanitizePrompt(prompt) + ', full scene, zoomed out, complete composition, nothing cut off at edges'
 
     const response = await openai.images.generate({
       model: 'gpt-image-2.5-sunburst',
       prompt: cleanPrompt,
       n: 1,
-      size,
+      size: `${aiWidth}x${aiHeight}` as any,
       quality: 'high',
     })
 
@@ -89,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const finalImageUrl = imageUrl || `data:image/png;base64,${b64}`
 
-    return NextResponse.json({ imageUrl: finalImageUrl, size })
+    return NextResponse.json({ imageUrl: finalImageUrl, size: `${aiWidth}x${aiHeight}` })
 
   } catch (error: any) {
     console.error('OpenAI error:', error?.message || error)
