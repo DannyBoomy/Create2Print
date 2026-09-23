@@ -1,28 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
+import { createClient } from '@supabase/supabase-js'
 
 const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
 const SHOP_ID = process.env.PRINTIFY_SHOP_ID
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 export async function POST(req: NextRequest) {
   let productId: string | null = null
 
   try {
-    const { imageUrl, blueprintId, printProviderId, variantId } = await req.json()
+    const { imageUrl, blueprintId, printProviderId, variantId, tempPath } = await req.json()
 
     console.log('MOCKUP REQUEST - blueprintId:', blueprintId, 'variantId:', variantId)
-    console.log('Image type:', imageUrl?.startsWith('data:') ? 'base64' : 'https URL')
+    console.log('Image type:', imageUrl?.startsWith('data:') ? 'base64' : 'URL')
 
     // Upload image to Printify
     let uploadPayload: any
     if (imageUrl && imageUrl.startsWith('data:')) {
       const base64Data = imageUrl.split(',')[1]
       uploadPayload = { file_name: `c2p-${Date.now()}.png`, contents: base64Data }
-      console.log('Uploading via base64 contents')
     } else {
       uploadPayload = { file_name: `c2p-${Date.now()}.png`, url: imageUrl }
-      console.log('Uploading via URL')
     }
 
     const uploadRes = await axios.post(
@@ -35,8 +39,7 @@ export async function POST(req: NextRequest) {
     if (!printifyImageId) throw new Error('Image upload failed')
     console.log('Upload success, image ID:', printifyImageId)
 
-    // Create temporary product — scale 1.1 to fill print area edge to edge
-    const scale = 1.1
+    const scale = Number(blueprintId) === 944 ? 1.1 : 1.1
 
     const payload = {
       title: 'Create2Print Preview',
@@ -67,11 +70,18 @@ export async function POST(req: NextRequest) {
       .map((img: any) => img.src as string)
       .filter((url: string, i: number, arr: string[]) => arr.indexOf(url) === i)
 
+    // Delete temp product from Printify
     if (productId) {
       await axios.delete(
         `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
         { headers: { Authorization: `Bearer ${API_KEY}` } }
       ).catch(() => {})
+    }
+
+    // Delete temp image from Supabase now that Printify has it
+    if (tempPath) {
+      await supabase.storage.from('designs').remove([tempPath]).catch(() => {})
+      console.log('Deleted temp file:', tempPath)
     }
 
     console.log('Final mockup count:', mockupUrls.length)

@@ -567,6 +567,7 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [mockupUrls, setMockupUrls] = useState<string[]>([])
   const [printifyImageId, setPrintifyImageId] = useState<string | null>(null)
+  const [tempImagePath, setTempImagePath] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [modifying, setModifying] = useState(false)
   const [loadingMockup, setLoadingMockup] = useState(false)
@@ -697,7 +698,7 @@ export default function Home() {
     setLoadingShipping(false)
   }
 
-  const generateMockup = async (imageUrl: string, variantId?: number) => {
+  const generateMockup = async (imageUrl: string, variantId?: number, tempPath?: string) => {
     if (!selectedProduct || !selectedSize) return
     setLoadingMockup(true)
     try {
@@ -707,7 +708,8 @@ export default function Home() {
           imageUrl,
           blueprintId: selectedProduct.printifyBlueprintId,
           printProviderId: selectedProduct.printifyPrintProviderId,
-          variantId: variantId || selectedSize.variantId
+          variantId: variantId || selectedSize.variantId,
+          tempPath: tempPath || tempImagePath || null
         })
       })
       const data = await res.json()
@@ -762,12 +764,13 @@ export default function Home() {
         throw new Error(data.error)
       }
       setGeneratedImage(data.imageUrl)
+      if (data.tempPath) setTempImagePath(data.tempPath)
       if (session?.user?.email !== 'dborsykowsky@gmail.com') {
         saveGenerationUsed()
         setGenerationsLeft(loadGenerationsLeft())
       }
       setStep('preview')
-      await generateMockup(data.imageUrl)
+      await generateMockup(data.imageUrl, undefined, data.tempPath)
     } catch (e: any) { setError(e.message) }
     finally { setGenerating(false) }
   }
@@ -787,12 +790,13 @@ export default function Home() {
         throw new Error(data.error)
       }
       setGeneratedImage(data.imageUrl)
+      if (data.tempPath) setTempImagePath(data.tempPath)
       if (session?.user?.email !== 'dborsykowsky@gmail.com') {
         saveGenerationUsed()
         setGenerationsLeft(loadGenerationsLeft())
       }
       setModifyPrompt('')
-      await generateMockup(data.imageUrl)
+      await generateMockup(data.imageUrl, undefined, data.tempPath)
     } catch (e: any) { setModifyError(e.message) }
     finally { setModifying(false) }
   }

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { getToken } from 'next-auth/jwt'
+import { createClient } from '@supabase/supabase-js'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 const ADMIN_EMAIL = 'dborsykowsky@gmail.com'
 
@@ -18,8 +24,6 @@ const generationCounts = new Map<string, { count: number; timestamp: number }>()
  */
 function getOptimalOpenAISize(printAreaWidth: number, printAreaHeight: number): { width: number; height: number } {
   const targetRatio = printAreaWidth / printAreaHeight
-
-  // Target a good quality size — aim for ~2048px on the longer edge
   const TARGET_LONG_EDGE = 2048
   const MIN_AREA = 655360
   const MAX_AREA = 8294400
@@ -30,26 +34,18 @@ function getOptimalOpenAISize(printAreaWidth: number, printAreaHeight: number): 
   let bestHeight = 1024
   let bestDiff = Infinity
 
-  // Try heights from 512 to 3840 in multiples of 16
   for (let h = 512; h <= MAX_EDGE; h += MULTIPLE) {
-    // Calculate ideal width for this height
     const idealWidth = targetRatio * h
-    // Round to nearest multiple of 16
     const w = Math.round(idealWidth / MULTIPLE) * MULTIPLE
 
     if (w < 512 || w > MAX_EDGE) continue
-
     const area = w * h
     if (area < MIN_AREA || area > MAX_AREA) continue
-
     const ratio = w / h
     if (ratio < 1/3 || ratio > 3) continue
 
     const diff = Math.abs(ratio - targetRatio)
-
-    // Prefer solutions closer to our target long edge for quality
-    const longEdge = Math.max(w, h)
-    const edgePenalty = Math.abs(longEdge - TARGET_LONG_EDGE) / TARGET_LONG_EDGE * 0.001
+    const edgePenalty = Math.abs(Math.max(w, h) - TARGET_LONG_EDGE) / TARGET_LONG_EDGE * 0.001
 
     if (diff + edgePenalty < bestDiff) {
       bestDiff = diff + edgePenalty
@@ -58,8 +54,7 @@ function getOptimalOpenAISize(printAreaWidth: number, printAreaHeight: number): 
     }
   }
 
-  console.log(`Print area ${printAreaWidth}x${printAreaHeight} (ratio ${targetRatio.toFixed(4)}) → OpenAI ${bestWidth}x${bestHeight} (ratio ${(bestWidth/bestHeight).toFixed(4)}, diff ${(bestDiff*100).toFixed(3)}%)`)
-
+  console.log(`Print area ${printAreaWidth}x${printAreaHeight} → OpenAI ${bestWidth}x${bestHeight} (diff ${(bestDiff*100).toFixed(3)}%)`)
   return { width: bestWidth, height: bestHeight }
 }
 
@@ -68,6 +63,8 @@ function sanitizePrompt(prompt: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  let tempPath: string | null = null
+
   try {
     const body = await req.json()
     const { prompt, width, height } = body
@@ -118,19 +115,54 @@ export async function POST(req: NextRequest) {
       quality: 'high',
     })
 
-    const imageUrl = response.data?.[0]?.url
     const b64 = response.data?.[0]?.b64_json
+    const imageUrl = response.data?.[0]?.url
 
-    if (!imageUrl && !b64) {
+    if (!b64 && !imageUrl) {
       return NextResponse.json({ error: 'No image returned from AI' }, { status: 500 })
     }
 
-    const finalImageUrl = imageUrl || `data:image/png;base64,${b64}`
+    // Upload to Supabase temp storage so mockup API can use a URL
+    // (avoids FUNCTION_PAYLOAD_TOO_LARGE when passing large base64 to mockup route)
+    const id = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    tempPath = `temp/${id}.png`
 
-    return NextResponse.json({ imageUrl: finalImageUrl, size: `${aiWidth}x${aiHeight}` })
+    let buffer: Buffer
+    if (b64) {
+      buffer = Buffer.from(b64, 'base64')
+    } else {
+      const imgRes = await fetch(imageUrl!)
+      buffer = Buffer.from(await imgRes.arrayBuffer())
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from('designs')
+      .upload(tempPath, buffer, { contentType: 'image/png', upsert: false })
+
+    if (uploadError) {
+      console.error('Supabase temp upload error:', uploadError)
+      // Fall back to base64 if upload fails
+      const fallbackUrl = b64 ? `data:image/png;base64,${b64}` : imageUrl!
+      return NextResponse.json({ imageUrl: fallbackUrl, tempPath: null, size: `${aiWidth}x${aiHeight}` })
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(tempPath)
+
+    console.log(`Image uploaded to temp: ${tempPath}`)
+
+    return NextResponse.json({
+      imageUrl: publicUrl,
+      tempPath,
+      size: `${aiWidth}x${aiHeight}`
+    })
 
   } catch (error: any) {
-    console.error('OpenAI error:', error?.message || error)
+    // Clean up temp file if something went wrong
+    if (tempPath) {
+      await supabase.storage.from('designs').remove([tempPath]).catch(() => {})
+    }
+
+    console.error('Generate error:', error?.message || error)
 
     if (error?.status === 400 || error?.message?.includes('safety')) {
       return NextResponse.json(
