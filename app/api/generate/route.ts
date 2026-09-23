@@ -150,8 +150,14 @@ export async function POST(req: NextRequest) {
 
     console.log(`Image uploaded to temp: ${tempPath}`)
 
+    // Return both the base64 for display AND the Supabase URL for mockup API
+    const base64ForDisplay = b64
+      ? `data:image/png;base64,${b64}`
+      : imageUrl!
+
     return NextResponse.json({
-      imageUrl: publicUrl,
+      imageUrl: base64ForDisplay,  // shown to user — base64, no expiry issue
+      mockupImageUrl: publicUrl,   // passed to mockup API — deleted after use
       tempPath,
       size: `${aiWidth}x${aiHeight}`
     })

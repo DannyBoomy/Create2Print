@@ -770,7 +770,8 @@ export default function Home() {
         setGenerationsLeft(loadGenerationsLeft())
       }
       setStep('preview')
-      await generateMockup(data.imageUrl, undefined, data.tempPath)
+      // Use mockupImageUrl (Supabase URL) for mockup API, imageUrl (base64) for display
+      await generateMockup(data.mockupImageUrl || data.imageUrl, undefined, data.tempPath)
     } catch (e: any) { setError(e.message) }
     finally { setGenerating(false) }
   }
@@ -796,7 +797,7 @@ export default function Home() {
         setGenerationsLeft(loadGenerationsLeft())
       }
       setModifyPrompt('')
-      await generateMockup(data.imageUrl, undefined, data.tempPath)
+      await generateMockup(data.mockupImageUrl || data.imageUrl, undefined, data.tempPath)
     } catch (e: any) { setModifyError(e.message) }
     finally { setModifying(false) }
   }
