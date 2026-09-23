@@ -371,7 +371,19 @@ function ShareButton({ image, prompt, product, size }: {
   const handleCopyLink = async () => {
     const url = await createShareLink()
     if (!url) return
-    await navigator.clipboard.writeText(url)
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      // Fallback for browsers that block clipboard without focus
+      const el = document.createElement('textarea')
+      el.value = url
+      el.style.position = 'fixed'
+      el.style.opacity = '0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
@@ -754,8 +766,8 @@ export default function Home() {
         saveGenerationUsed()
         setGenerationsLeft(loadGenerationsLeft())
       }
-      await generateMockup(data.imageUrl)
       setStep('preview')
+      await generateMockup(data.imageUrl)
     } catch (e: any) { setError(e.message) }
     finally { setGenerating(false) }
   }
