@@ -189,8 +189,8 @@ export const PRODUCTS: Product[] = [
           label: 'Standard',
           sizes: [
             { label: '26x36"', width: 26, height: 36, variantId: 41686, price: 2300, printAreaWidth: 4350,  printAreaHeight: 5850 },
-            { label: '50x60"', width: 50, height: 60, variantId: 41687, price: 3300, printAreaWidth: 7500,  printAreaHeight: 9000 },
-            { label: '68x80"', width: 68, height: 80, variantId: 45130, price: 4900, printAreaWidth: 10200, printAreaHeight: 12000 },
+            { label: '50x60"', width: 50, height: 60, variantId: 41687, price: 3300, printAreaWidth: 8100,  printAreaHeight: 9525 },
+            { label: '68x80"', width: 68, height: 80, variantId: 45130, price: 4900, printAreaWidth: 10650, printAreaHeight: 12525 },
           ],
         }],
       },

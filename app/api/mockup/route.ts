@@ -36,9 +36,7 @@ export async function POST(req: NextRequest) {
     console.log('Upload success, image ID:', printifyImageId)
 
     // Create temporary product — scale 1.1 to fill print area edge to edge
-    // Blueprint 944 (framed canvas) needs scale 1.0 to fill correctly
-    // Other blueprints use 1.1 to fill edge to edge
-    const scale = Number(blueprintId) === 944 ? 1.0 : 1.1
+    const scale = 1.1
 
     const payload = {
       title: 'Create2Print Preview',
