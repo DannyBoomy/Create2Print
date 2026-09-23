@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     const size = getOpenAIImageSize(Number(width), Number(height))
-    const cleanPrompt = sanitizePrompt(prompt)
+    const cleanPrompt = sanitizePrompt(prompt) + ', full scene, zoomed out, complete composition, everything fitting in the image'
 
     console.log(`Generating at ${size} for print area ${width}x${height}`)
 
