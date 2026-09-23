@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { PRODUCTS } from '@/lib/products'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -24,18 +25,22 @@ interface ShippingInfo {
 
 const COUNTRIES = ['US','GB','CA','AU','DE','FR','NL','SE','NO','DK','FI','IT','ES','PT','BE','CH','AT','NZ','JP','SG','IE','MX','BR','AR','ZA','IN','PH','MY','TH','ID']
 
-const PRICE_MAP: Record<string, Record<string, number>> = {
-  'rolled-poster':       { '8×10"': 1800, '11×14"': 2400, '18×24"': 3500, '24×36"': 4800 },
-  'matte-canvas':        { '8×10"': 3500, '12×16"': 4900, '16×20"': 6500, '20×24"': 8500 },
-  'matte-canvas-framed': { '8×10"': 5500, '12×16"': 7500, '16×20"': 9500, '18×24"': 11500 },
-  'wall-tapestry':       { '26×36"': 3800, '50×60"': 5500, '68×80"': 7500 },
+// Look up price by variant ID from products — always accurate, never stale
+function getPriceByVariantId(variantId: number): number {
+  for (const product of PRODUCTS) {
+    for (const color of product.colors) {
+      for (const finish of color.finishes) {
+        for (const size of finish.sizes) {
+          if (size.variantId === variantId) return size.price
+        }
+      }
+    }
+  }
+  return 0
 }
 
-const BLUEPRINT_MAP: Record<string, number> = {
-  'rolled-poster': 1220,
-  'matte-canvas': 1159,
-  'matte-canvas-framed': 944,
-  'wall-tapestry': 241,
+function getBlueprintId(productId: string): number {
+  return PRODUCTS.find(p => p.id === productId)?.printifyBlueprintId || 1220
 }
 
 function formatPrice(cents: number): string {
@@ -278,7 +283,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
     address1: '', city: '', state: '', zip: '', country: 'US'
   })
 
-  const price = PRICE_MAP[share.product_id]?.[share.size_name] || 0
+  const price = getPriceByVariantId(share.variant_id)
   const shippingCost = shipping.country === 'US' ? 599 : 1499
   const total = price + shippingCost
   const allUrls = [share.image_url, ...mockupUrls]
@@ -291,7 +296,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageUrl: share.image_url,
-            blueprintId: BLUEPRINT_MAP[share.product_id] || 1220,
+            blueprintId: getBlueprintId(share.product_id),
             printProviderId: 99,
             variantId: share.variant_id,
           })
@@ -333,7 +338,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           printifyImageId,
-          blueprintId: BLUEPRINT_MAP[share.product_id] || 1220,
+          blueprintId: getBlueprintId(share.product_id),
           printProviderId: 99,
           variantId: share.variant_id,
           shipping,
@@ -454,7 +459,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
               <div>
                 <div className="text-sm text-[#747aa2]">{share.product_name} · {share.size_name}</div>
                 <div className="text-xs text-[#8a89a8] mt-0.5">
-                  Shipping: {shipping.country === 'US' ? '$5.99 (Domestic)' : '$14.99 (International)'}
+                  Shipping: Calculated at checkout
                 </div>
               </div>
               <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
