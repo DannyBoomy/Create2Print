@@ -833,9 +833,17 @@ export default function Home() {
   }
 
   const reset = () => {
+    // Delete temp image from Supabase if exists
+    if (tempImagePath) {
+      fetch('/api/delete-temp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempPath: tempImagePath })
+      }).catch(() => {})
+    }
     setStep('product'); setSelectedProduct(null); setSelectedColor('Default'); setSelectedFinish(''); setSelectedSize(null)
     setPrompt(''); setModifyPrompt(''); setGeneratedImage(null); setUploadedImage(null)
-    setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null)
+    setMockupUrls([]); setPrintifyImageId(null); setClientSecret(null); setTempImagePath(null)
     setOrderId(null); setError(null); setModifyError(null); setLightboxOpen(false)
     setShipping({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
     setPromptSuggestions(getRandomPrompts())

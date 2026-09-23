@@ -78,11 +78,8 @@ export async function POST(req: NextRequest) {
       ).catch(() => {})
     }
 
-    // Delete temp image from Supabase now that Printify has it
-    if (tempPath) {
-      await supabase.storage.from('designs').remove([tempPath]).catch(() => {})
-      console.log('Deleted temp file:', tempPath)
-    }
+    // Note: temp file stays in Supabase so image 1 in carousel keeps working
+    // It gets deleted when user resets via /api/delete-temp
 
     console.log('Final mockup count:', mockupUrls.length)
 
