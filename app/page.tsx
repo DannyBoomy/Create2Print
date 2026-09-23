@@ -581,7 +581,12 @@ export default function Home() {
   const sizeOptions: SizeOption[] = (selectedProduct && selectedFinish) ? getSizes(selectedProduct, selectedColor, selectedFinish) : []
 
   useEffect(() => {
-    setGenerationsLeft(loadGenerationsLeft())
+    // Admin gets unlimited generations
+    if (session?.user?.email === 'dborsykowsky@gmail.com') {
+      setGenerationsLeft(999)
+    } else {
+      setGenerationsLeft(loadGenerationsLeft())
+    }
     const check = () => setIsMobile(window.innerWidth < 640)
     check()
     window.addEventListener('resize', check)
@@ -745,8 +750,10 @@ export default function Home() {
         throw new Error(data.error)
       }
       setGeneratedImage(data.imageUrl)
-      saveGenerationUsed()
-      setGenerationsLeft(loadGenerationsLeft())
+      if (session?.user?.email !== 'dborsykowsky@gmail.com') {
+        saveGenerationUsed()
+        setGenerationsLeft(loadGenerationsLeft())
+      }
       await generateMockup(data.imageUrl)
       setStep('preview')
     } catch (e: any) { setError(e.message) }
@@ -768,8 +775,10 @@ export default function Home() {
         throw new Error(data.error)
       }
       setGeneratedImage(data.imageUrl)
-      saveGenerationUsed()
-      setGenerationsLeft(loadGenerationsLeft())
+      if (session?.user?.email !== 'dborsykowsky@gmail.com') {
+        saveGenerationUsed()
+        setGenerationsLeft(loadGenerationsLeft())
+      }
       setModifyPrompt('')
       await generateMockup(data.imageUrl)
     } catch (e: any) { setModifyError(e.message) }
