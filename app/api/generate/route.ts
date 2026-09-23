@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { getServerSession } from 'next-auth'
+import { cookies } from 'next/headers'
+import { getToken } from 'next-auth/jwt'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -28,9 +29,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Admin bypass — unlimited generations
-    const session = await getServerSession()
-    const isAdmin = session?.user?.email === ADMIN_EMAIL
+    // Admin bypass — use getToken which works reliably in API routes
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    const isAdmin = token?.email === ADMIN_EMAIL
 
     if (!isAdmin) {
       const ip =
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
       const now = Date.now()
       const existing = generationCounts.get(ip)
 
-      // Reset if older than 24 hours
       if (existing && now - existing.timestamp > 24 * 60 * 60 * 1000) {
         generationCounts.delete(ip)
       }
@@ -79,10 +79,7 @@ export async function POST(req: NextRequest) {
 
     const finalImageUrl = imageUrl || `data:image/png;base64,${b64}`
 
-    return NextResponse.json({
-      imageUrl: finalImageUrl,
-      size,
-    })
+    return NextResponse.json({ imageUrl: finalImageUrl, size })
 
   } catch (error: any) {
     console.error('OpenAI error:', error?.message || error)
