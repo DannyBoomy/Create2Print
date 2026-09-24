@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!printifyImageId) throw new Error('Image upload failed')
     console.log('Upload success, image ID:', printifyImageId)
 
-    const scale = Number(blueprintId) === 944 ? 1.1 : 1.1
+    const scale = 1.0
 
     const payload = {
       title: 'Create2Print Preview',
