@@ -560,6 +560,8 @@ export default function Home() {
   const [selectedFinish, setSelectedFinish] = useState<string>('')
   const [selectedSize, setSelectedSize] = useState<SizeOption | null>(null)
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
+  const [uploadMode, setUploadMode] = useState<'design' | 'reference'>('design')
+  const [referenceImage, setReferenceImage] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
   const [modifyPrompt, setModifyPrompt] = useState('')
   const [promptSuggestions, setPromptSuggestions] = useState<string[]>(getRandomPrompts)
@@ -1192,22 +1194,138 @@ export default function Home() {
 
             {createMode === 'upload' && (
               <div className="space-y-4">
-                <div className="rounded-2xl p-4 border-2 border-amber-200 bg-amber-50">
-                  <div className="flex gap-3">
-                    <span className="text-xl flex-shrink-0">⚠️</span>
-                    <div>
-                      <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
-                      <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.description}</div>
-                    </div>
-                  </div>
+                {/* Upload mode toggle */}
+                <div className="flex bg-[#f0eeff] rounded-2xl p-1">
+                  {(['design', 'reference'] as const).map(mode => (
+                    <button key={mode} onClick={() => setUploadMode(mode)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                      style={{ background: uploadMode === mode ? 'white' : 'transparent', color: uploadMode === mode ? '#6d3df3' : '#8a89a8', boxShadow: uploadMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
+                      {mode === 'design' ? '🖼️ Use as Design' : '✨ Use as Reference'}
+                    </button>
+                  ))}
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-12 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
-                  <div className="text-5xl mb-3">📁</div>
-                  <div className="font-bold text-[#071633]">Click to upload your image</div>
-                  <div className="text-[#8a89a8] text-sm mt-1">PNG, JPG, WEBP supported</div>
-                </button>
+
+                {uploadMode === 'design' ? (
+                  <>
+                    <div className="rounded-2xl p-4 border-2 border-amber-200 bg-amber-50">
+                      <div className="flex gap-3">
+                        <span className="text-xl flex-shrink-0">⚠️</span>
+                        <div>
+                          <div className="font-bold text-sm mb-1 text-amber-900">Aspect Ratio Notice</div>
+                          <div className="text-xs leading-relaxed text-amber-800">{selectedProduct?.description}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-12 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
+                      <div className="text-5xl mb-3">📁</div>
+                      <div className="font-bold text-[#071633]">Click to upload your image</div>
+                      <div className="text-[#8a89a8] text-sm mt-1">PNG, JPG, WEBP supported</div>
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl p-4 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
+                      <p className="text-sm font-bold text-[#071633] mb-1">Upload a reference image</p>
+                      <p className="text-xs text-[#747aa2]">Upload a photo — your selfie, your pet, your house — and describe how to incorporate it. The AI will use it as inspiration.</p>
+                    </div>
+
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0]; if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => setReferenceImage(ev.target?.result as string)
+                      reader.readAsDataURL(file)
+                    }} className="hidden" />
+
+                    {referenceImage ? (
+                      <div className="relative">
+                        <img src={referenceImage} alt="Reference" className="w-full max-h-48 object-contain rounded-2xl border-2 border-[#6d3df3] bg-[#f9f7ff]" />
+                        <button onClick={() => setReferenceImage(null)}
+                          className="absolute top-2 right-2 w-7 h-7 bg-black/50 text-white rounded-full text-xs flex items-center justify-center hover:bg-black/70">✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => fileInputRef.current?.click()}
+                        className="w-full border-2 border-dashed border-[#ddd9f7] rounded-2xl p-8 text-center transition-all bg-white hover:border-[#6d3df3] hover:bg-[#f9f7ff]">
+                        <div className="text-4xl mb-2">📸</div>
+                        <div className="font-bold text-[#071633] text-sm">Upload reference photo</div>
+                        <div className="text-[#8a89a8] text-xs mt-1">Selfie, pet, house, object — anything</div>
+                      </button>
+                    )}
+
+                    <div>
+                      <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe what to do with it</label>
+                      <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+                        placeholder="Make me look like an astronaut... Turn my dog into a renaissance painting... My house in a winter snowstorm watercolor..."
+                        rows={4} className={inputClass + " resize-none leading-relaxed"} />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
+                      <div className="flex gap-1">
+                        {[0, 1, 2].map(i => (
+                          <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < generationsLeft ? 'linear-gradient(135deg,#6d3df3,#ff8c18)' : '#e0e0e8' }} />
+                        ))}
+                      </div>
+                      <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining today</span>
+                    </div>
+
+                    {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
+
+                    <button onClick={async () => {
+                      if (!referenceImage || !prompt.trim() || !selectedSize || generationsLeft <= 0) return
+                      setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
+                      try {
+                        const res = await fetch('/api/generate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            prompt,
+                            width: selectedSize.printAreaWidth,
+                            height: selectedSize.printAreaHeight,
+                            referenceImage,
+                          })
+                        })
+                        const data = await res.json()
+                        if (!res.ok) {
+                          if (res.status === 429) setGenerationsLeft(0)
+                          throw new Error(data.error)
+                        }
+                        setGeneratedImage(data.imageUrl)
+                        if (data.tempPath) setTempImagePath(data.tempPath)
+                        if (session?.user?.email !== 'dborsykowsky@gmail.com') {
+                          saveGenerationUsed()
+                          setGenerationsLeft(loadGenerationsLeft())
+                        }
+                        setStep('preview')
+                        await generateMockup(data.mockupImageUrl || data.imageUrl, undefined, data.tempPath)
+                      } catch (e: any) { setError(e.message) }
+                      finally { setGenerating(false) }
+                    }} disabled={generating || !referenceImage || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
+                      {generating ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                          Generating from your photo...
+                        </span>
+                      ) : '✦ Generate from Photo'}
+                    </button>
+
+                    {generating && (
+                      <div className="space-y-3 py-1">
+                        <div className="flex items-center gap-3">
+                          <svg className="animate-spin w-5 h-5 flex-shrink-0 text-[#6d3df3]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
+                          </svg>
+                          <div className="flex-1 bg-[#e8e4ff] rounded-full h-4 overflow-hidden shadow-inner">
+                            <div className="h-4 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] shadow-[0_0_12px_rgba(239,72,167,0.5)]"
+                              style={{ animation: 'progress 28s ease-in-out forwards' }} />
+                          </div>
+                          <span className="text-xs font-bold text-[#6d3df3] flex-shrink-0">~30s</span>
+                        </div>
+                        <p className="text-center text-[#8a89a8] text-xs animate-pulse">Incorporating your photo into the artwork...</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

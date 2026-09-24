@@ -107,16 +107,38 @@ export async function POST(req: NextRequest) {
     const { width: aiWidth, height: aiHeight } = getOptimalOpenAISize(Number(width), Number(height))
     const cleanPrompt = sanitizePrompt(prompt) + ', full scene, zoomed out, complete composition, nothing cut off at edges'
 
-    const response = await openai.images.generate({
-      model: 'gpt-image-2.5-sunburst',
-      prompt: cleanPrompt,
-      n: 1,
-      size: `${aiWidth}x${aiHeight}` as any,
-      quality: 'high',
-    })
+    let b64: string | undefined
+    let imageUrl: string | undefined
 
-    const b64 = response.data?.[0]?.b64_json
-    const imageUrl = response.data?.[0]?.url
+    if (body.referenceImage) {
+      // Reference image mode — use images.edit() to incorporate user's photo
+      console.log('Using reference image mode')
+      const base64Data = body.referenceImage.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      const blob = new Blob([buffer], { type: 'image/png' })
+      const file = new File([blob], 'reference.png', { type: 'image/png' })
+
+      const response = await openai.images.edit({
+        model: 'gpt-image-2.5-sunburst',
+        image: file,
+        prompt: cleanPrompt,
+        n: 1,
+        size: `${aiWidth}x${aiHeight}` as any,
+      })
+      b64 = response.data?.[0]?.b64_json
+      imageUrl = response.data?.[0]?.url
+    } else {
+      // Standard generation mode
+      const response = await openai.images.generate({
+        model: 'gpt-image-2.5-sunburst',
+        prompt: cleanPrompt,
+        n: 1,
+        size: `${aiWidth}x${aiHeight}` as any,
+        quality: 'high',
+      })
+      b64 = response.data?.[0]?.b64_json
+      imageUrl = response.data?.[0]?.url
+    }
 
     if (!b64 && !imageUrl) {
       return NextResponse.json({ error: 'No image returned from AI' }, { status: 500 })
