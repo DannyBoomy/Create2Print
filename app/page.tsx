@@ -337,7 +337,7 @@ function ShareButton({ image, prompt, product, size }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: image,
+          imageUrl: image,
           prompt,
           productId: product?.id,
           productName: product?.name,
@@ -443,7 +443,7 @@ function SaveDesignButton({ image, prompt, product, size, color, finish }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: image,
+          imageUrl: image,
           prompt,
           productId: product.id,
           productName: product.name,

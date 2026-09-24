@@ -21,18 +21,19 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, serviceKey)
     const body = await req.json()
-    const { imageBase64, prompt, productId, productName, sizeName, variantId } = body
+    const { imageUrl: imageInput, imageBase64, prompt, productId, productName, sizeName, variantId } = body
+    const imageSource = imageInput || imageBase64
 
     console.log('Share request for product:', productName)
-    console.log('Image type:', imageBase64?.startsWith('data:') ? 'base64' : 'url')
+    console.log('Image type:', imageSource?.startsWith('data:') ? 'base64' : 'url')
 
     const shareId = generateId()
     const fileName = `${shareId}.png`
     let imageUrl: string
 
-    if (imageBase64 && imageBase64.startsWith('data:')) {
+    if (imageSource && imageSource.startsWith('data:')) {
       console.log('Uploading base64 image...')
-      const base64Data = imageBase64.split(',')[1]
+      const base64Data = imageSource.split(',')[1]
       const buffer = Buffer.from(base64Data, 'base64')
 
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -51,8 +52,8 @@ export async function POST(req: NextRequest) {
       const { data: urlData } = supabase.storage.from('designs').getPublicUrl(fileName)
       imageUrl = urlData.publicUrl
     } else {
-      imageUrl = imageBase64
-      console.log('Using existing URL')
+      imageUrl = imageSource
+      console.log('Using existing URL:', imageSource?.substring(0, 50))
     }
 
     const expiresAt = new Date()
