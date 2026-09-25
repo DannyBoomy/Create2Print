@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { prompt, width, height } = body
+    const { prompt, width, height, transparentBg, productContext } = body
 
     if (!prompt || !width || !height) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -105,7 +105,9 @@ export async function POST(req: NextRequest) {
 
     // Get optimal dimensions for this print area
     const { width: aiWidth, height: aiHeight } = getOptimalOpenAISize(Number(width), Number(height))
-    const cleanPrompt = sanitizePrompt(prompt) + ', full scene, zoomed out, complete composition, nothing cut off at edges'
+    const contextPrefix = productContext ? `${productContext} ` : ''
+    const transparentSuffix = transparentBg ? ', transparent background, PNG with alpha channel, no background, isolated subject' : ', full scene, zoomed out, complete composition, nothing cut off at edges'
+    const cleanPrompt = contextPrefix + sanitizePrompt(prompt) + transparentSuffix
 
     let b64: string | undefined
     let imageUrl: string | undefined
@@ -113,10 +115,15 @@ export async function POST(req: NextRequest) {
     if (body.referenceImage) {
       // Reference image mode — use images.edit() to incorporate user's photo
       console.log('Using reference image mode')
-      const base64Data = body.referenceImage.replace(/^data:image\/\w+;base64,/, '')
+      const matches = body.referenceImage.match(/^data:(image\/\w+);base64,(.+)$/)
+      if (!matches) throw new Error('Invalid image format')
+      const mimeType = matches[1]
+      const base64Data = matches[2]
       const buffer = Buffer.from(base64Data, 'base64')
-      const blob = new Blob([buffer], { type: 'image/png' })
-      const file = new File([blob], 'reference.png', { type: 'image/png' })
+
+      // OpenAI requires a proper File object — use toFile helper from openai SDK
+      const { toFile } = await import('openai')
+      const file = await toFile(buffer, 'reference.png', { type: 'image/png' })
 
       const response = await openai.images.edit({
         model: 'gpt-image-2.5-sunburst',
@@ -135,6 +142,7 @@ export async function POST(req: NextRequest) {
         n: 1,
         size: `${aiWidth}x${aiHeight}` as any,
         quality: 'high',
+        ...(transparentBg && { background: 'transparent' }),
       })
       b64 = response.data?.[0]?.b64_json
       imageUrl = response.data?.[0]?.url

@@ -561,6 +561,7 @@ export default function Home() {
   const [selectedSize, setSelectedSize] = useState<SizeOption | null>(null)
   const [createMode, setCreateMode] = useState<'generate' | 'upload'>('generate')
   const [uploadMode, setUploadMode] = useState<'design' | 'reference'>('design')
+  const [transparentBg, setTransparentBg] = useState(false)
   const [referenceImage, setReferenceImage] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
   const [modifyPrompt, setModifyPrompt] = useState('')
@@ -658,6 +659,7 @@ export default function Home() {
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
     setSelectedColor(product.colors[0]?.label || 'Default')
+    setTransparentBg(product.recommendTransparent || false)
     // Auto-select finish if only one
     const defaultFinishes = product.colors[0]?.finishes || []
     setSelectedFinish(defaultFinishes.length === 1 ? defaultFinishes[0].label : '')
@@ -758,7 +760,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
+        body: JSON.stringify({ prompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {
@@ -1155,6 +1157,24 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+                {/* Transparent background toggle */}
+                <div className="flex items-center justify-between rounded-2xl border border-[#e0e0ed] bg-white px-4 py-3">
+                  <div>
+                    <div className="text-sm font-bold text-[#071633]">Transparent Background</div>
+                    <div className="text-xs text-[#8a89a8]">
+                      {selectedProduct?.recommendTransparent ? '✨ Recommended for this product' : 'Good for logos and stickers'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setTransparentBg(t => !t)}
+                    className="relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0"
+                    style={{ background: transparentBg ? 'linear-gradient(90deg,#6d3df3,#8b5cf6)' : '#e0e0e8' }}
+                  >
+                    <span className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300"
+                      style={{ left: transparentBg ? '28px' : '4px' }} />
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-2 text-xs text-[#8a89a8]">
                   <div className="flex gap-1">
                     {[0, 1, 2].map(i => (

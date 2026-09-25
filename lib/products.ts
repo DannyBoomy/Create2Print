@@ -1,4 +1,4 @@
-export type ProductId = 'rolled-poster' | 'matte-canvas' | 'matte-canvas-framed' | 'wall-tapestry'
+export type ProductId = 'rolled-poster' | 'matte-canvas' | 'matte-canvas-framed' | 'wall-tapestry' | 'ceramic-mug' | 'desk-mat' | 'gift-wrapping-paper' | 'puzzle' | 'arctic-fleece-blanket' | 'car-magnet' | 'ceramic-coaster' | 'shower-curtain' | 'fleece-sherpa-blanket' | 'tumbler-20oz' | 'area-rug' | 'velveteen-plush-blanket'
 
 export interface SizeOption {
   label: string
@@ -30,12 +30,16 @@ export interface Product {
   printifyPrintProviderId: number
   hasColors: boolean
   hasFinishes: boolean
+  recommendTransparent: boolean
+  productContext: string
   colors: ColorOption[]
 }
 
 export const PRODUCTS: Product[] = [
   {
     id: 'rolled-poster',
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a rolled poster.',
     name: 'Rolled Poster',
     description: 'Premium poster print, rolled and shipped in a protective tube.',
     emoji: '🖼️',
@@ -81,6 +85,8 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'matte-canvas',
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a matte canvas.',
     name: 'Matte Canvas',
     description: 'Gallery-quality canvas wrap, ready to hang.',
     emoji: '🎨',
@@ -108,6 +114,8 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'matte-canvas-framed',
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a framed canvas.',
     name: 'Framed Canvas',
     description: 'Matte canvas in a solid wood frame, arrives ready to hang.',
     emoji: '🪞',
@@ -174,6 +182,8 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'wall-tapestry',
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a wall tapestry.',
     name: 'Wall Tapestry',
     description: 'Soft woven tapestry, perfect for any room.',
     emoji: '🏴',
@@ -195,6 +205,211 @@ export const PRODUCTS: Product[] = [
         }],
       },
     ],
+  },,
+  {
+    id: 'ceramic-mug',
+    name: 'Ceramic Mug',
+    description: 'Classic ceramic mug, dishwasher safe.',
+    emoji: '☕',
+    printifyBlueprintId: 478,
+    printifyPrintProviderId: 99,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will wrap around a ceramic mug.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '11oz', width: 11, height: 11, variantId: 65216, price: 1800, printAreaWidth: 2475, printAreaHeight: 1155 },
+      { label: '15oz', width: 15, height: 15, variantId: 104692, price: 2200, printAreaWidth: 2475, printAreaHeight: 1275 },
+    ]}]}],
+  },
+  {
+    id: 'tumbler-20oz',
+    name: '20oz Tumbler',
+    description: 'Insulated 20oz tumbler. Keeps drinks hot or cold for hours.',
+    emoji: '🥤',
+    printifyBlueprintId: 353,
+    printifyPrintProviderId: 1,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: true,
+    productContext: 'This design will wrap around a 20oz tumbler. Consider a seamless wrap-around design.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '20oz', width: 20, height: 20, variantId: 44519, price: 2800, printAreaWidth: 2795, printAreaHeight: 2100 },
+    ]}]}],
+  },
+  {
+    id: 'ceramic-coaster',
+    name: 'Ceramic Coaster',
+    description: 'Custom printed ceramic coaster with cork backing.',
+    emoji: '🫖',
+    printifyBlueprintId: 1523,
+    printifyPrintProviderId: 23,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a square ceramic coaster.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: 'One size', width: 4, height: 4, variantId: 109347, price: 800, printAreaWidth: 1260, printAreaHeight: 1260 },
+    ]}]}],
+  },
+  {
+    id: 'desk-mat',
+    name: 'Stitched Edge Desk Mat',
+    description: 'Premium stitched edge desk mat to elevate your workspace.',
+    emoji: '💻',
+    printifyBlueprintId: 10665,
+    printifyPrintProviderId: 1,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a desk mat.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '14"x29"', width: 14, height: 29, variantId: 105489, price: 1500, printAreaWidth: 1650, printAreaHeight: 1650 },
+      { label: '18"x36"', width: 18, height: 36, variantId: 105505, price: 2000, printAreaWidth: 2475, printAreaHeight: 1575 },
+      { label: '24"x48"', width: 24, height: 48, variantId: 105497, price: 2200, printAreaWidth: 3150, printAreaHeight: 1050 },
+    ]}]}],
+  },
+  {
+    id: 'car-magnet',
+    name: 'Car Magnet',
+    description: 'Weather-resistant car magnet. Easy to apply and remove.',
+    emoji: '🚗',
+    printifyBlueprintId: 1464,
+    printifyPrintProviderId: 28,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: true,
+    productContext: 'This design will be printed on a car magnet. A clean logo or simple design works best.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '5"x5"', width: 5, height: 5, variantId: 105489, price: 800, printAreaWidth: 1650, printAreaHeight: 1650 },
+      { label: '7.5"x4.5"', width: 8, height: 5, variantId: 105505, price: 900, printAreaWidth: 2475, printAreaHeight: 1575 },
+      { label: '10"x3"', width: 10, height: 3, variantId: 105497, price: 800, printAreaWidth: 3150, printAreaHeight: 1050 },
+    ]}]}],
+  },
+  {
+    id: 'shower-curtain',
+    name: 'Shower Curtain',
+    description: 'Custom printed shower curtain. Water-resistant and vibrant.',
+    emoji: '🚿',
+    printifyBlueprintId: 235,
+    printifyPrintProviderId: 10,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a full shower curtain.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '71"x74"', width: 71, height: 74, variantId: 41653, price: 4500, printAreaWidth: 7104, printAreaHeight: 7392 },
+    ]}]}],
+  },
+  {
+    id: 'puzzle',
+    name: 'Custom Puzzle',
+    description: 'Custom photo puzzle. Choose your piece count for more or less challenge.',
+    emoji: '🧩',
+    printifyBlueprintId: 1149,
+    printifyPrintProviderId: 28,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a jigsaw puzzle.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '110 pcs', width: 8, height: 10, variantId: 87923, price: 1500, printAreaWidth: 2550, printAreaHeight: 3150 },
+      { label: '252 pcs', width: 10, height: 14, variantId: 87924, price: 2000, printAreaWidth: 3450, printAreaHeight: 4395 },
+      { label: '520 pcs', width: 14, height: 18, variantId: 87925, price: 2800, printAreaWidth: 5100, printAreaHeight: 6300 },
+      { label: '1014 pcs', width: 18, height: 24, variantId: 87917, price: 3500, printAreaWidth: 5768, printAreaHeight: 8700 },
+    ]}]}],
+  },
+  {
+    id: 'gift-wrapping-paper',
+    name: 'Gift Wrapping Paper',
+    description: 'Custom printed gift wrapping paper. Available in matte and satin.',
+    emoji: '🎁',
+    printifyBlueprintId: 1100,
+    printifyPrintProviderId: 215,
+    hasColors: false,
+    hasFinishes: true,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on gift wrapping paper as a repeating pattern.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [
+      { label: 'Matte', sizes: [
+        { label: '29"x20"', width: 29, height: 20, variantId: 147685, price: 1200, printAreaWidth: 5874, printAreaHeight: 4205 },
+        { label: '29"x72"', width: 29, height: 72, variantId: 147687, price: 2200, printAreaWidth: 5874, printAreaHeight: 14614 },
+        { label: '29"x144"', width: 29, height: 144, variantId: 147686, price: 3500, printAreaWidth: 5874, printAreaHeight: 28913 },
+      ]},
+      { label: 'Satin', sizes: [
+        { label: '29"x20"', width: 29, height: 20, variantId: 147688, price: 1400, printAreaWidth: 5874, printAreaHeight: 4205 },
+        { label: '29"x72"', width: 29, height: 72, variantId: 147690, price: 2500, printAreaWidth: 5874, printAreaHeight: 14614 },
+        { label: '29"x144"', width: 29, height: 144, variantId: 147689, price: 3800, printAreaWidth: 5874, printAreaHeight: 28913 },
+      ]},
+    ]}],
+  },
+  {
+    id: 'arctic-fleece-blanket',
+    name: 'Arctic Fleece Blanket',
+    description: 'Warm arctic fleece blanket, perfect for cold nights.',
+    emoji: '❄️',
+    printifyBlueprintId: 1328,
+    printifyPrintProviderId: 99,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on an arctic fleece blanket.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '30"x40"', width: 30, height: 40, variantId: 100925, price: 2200, printAreaWidth: 5025, printAreaHeight: 6525 },
+      { label: '50"x60"', width: 50, height: 60, variantId: 100926, price: 3500, printAreaWidth: 8025, printAreaHeight: 9525 },
+      { label: '60"x80"', width: 60, height: 80, variantId: 100927, price: 4200, printAreaWidth: 9561, printAreaHeight: 12699 },
+    ]}]}],
+  },
+  {
+    id: 'fleece-sherpa-blanket',
+    name: 'Fleece Sherpa Blanket',
+    description: 'Ultra-cozy sherpa fleece blanket. Soft on both sides.',
+    emoji: '🧸',
+    printifyBlueprintId: 238,
+    printifyPrintProviderId: 99,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a sherpa fleece blanket.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '30"x40"', width: 30, height: 40, variantId: 120658, price: 2800, printAreaWidth: 4875, printAreaHeight: 6375 },
+      { label: '50"x60"', width: 50, height: 60, variantId: 41656, price: 4200, printAreaWidth: 7875, printAreaHeight: 9375 },
+      { label: '60"x80"', width: 60, height: 80, variantId: 41659, price: 5500, printAreaWidth: 9375, printAreaHeight: 12375 },
+    ]}]}],
+  },
+  {
+    id: 'area-rug',
+    name: 'Area Rug',
+    description: 'Custom printed area rug. Soft, durable, and machine washable.',
+    emoji: '🏠',
+    printifyBlueprintId: 438,
+    printifyPrintProviderId: 10,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on an area rug.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '24"x36"', width: 24, height: 36, variantId: 62320, price: 3500, printAreaWidth: 3750, printAreaHeight: 5550 },
+      { label: '36"x60"', width: 36, height: 60, variantId: 62321, price: 5500, printAreaWidth: 5700, printAreaHeight: 9300 },
+      { label: '48"x72"', width: 48, height: 72, variantId: 62322, price: 7500, printAreaWidth: 7494, printAreaHeight: 11100 },
+    ]}]}],
+  },
+  {
+    id: 'velveteen-plush-blanket',
+    name: 'Velveteen Plush Blanket',
+    description: 'Super soft velveteen plush blanket. Perfect gift for anyone.',
+    emoji: '🛏️',
+    printifyBlueprintId: 522,
+    printifyPrintProviderId: 99,
+    hasColors: false,
+    hasFinishes: false,
+    recommendTransparent: false,
+    productContext: 'This design will be printed on a velveteen plush blanket.',
+    colors: [{ label: 'Default', hex: '#ffffff', finishes: [{ label: 'Standard', sizes: [
+      { label: '30"x40"', width: 30, height: 40, variantId: 68322, price: 2500, printAreaWidth: 4725, printAreaHeight: 6300 },
+      { label: '50"x60"', width: 50, height: 60, variantId: 68323, price: 3800, printAreaWidth: 7825, printAreaHeight: 9325 },
+      { label: '60"x80"', width: 60, height: 80, variantId: 68324, price: 4500, printAreaWidth: 9300, printAreaHeight: 12300 },
+    ]}]}],
   },
 ]
 
@@ -222,7 +437,7 @@ export function getOpenAIImageSize(
   printAreaHeight: number
 ): '1024x1024' | '1536x1024' | '1024x1536' {
   const ratio = printAreaWidth / printAreaHeight
-  if (ratio > 1.2) return '1536x1024'
-  if (ratio < 0.85) return '1024x1536'
-  return '1024x1024'
+  if (ratio > 1.2) return '1536x1024'  // landscape
+  if (ratio < 0.84) return '1024x1536' // portrait — all vertical products except near-square tapestries
+  return '1024x1024'                   // near-square (50x60 and 68x80 tapestry at 0.85 ratio)
 }
