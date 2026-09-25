@@ -218,19 +218,21 @@ export const PRODUCTS: Product[] = [
     emoji: '💻',
     printifyBlueprintId: 10665,
     printifyPrintProviderId: 1,
-    hasColors: false,
+    hasColors: true,
     hasFinishes: false,
     recommendTransparent: false,
     productContext: 'This design will be printed on a desk mat.',
-    colors: [{
-      label: 'Default',
-      hex: '#ffffff',
-      finishes: [{ label: 'Standard', sizes: [
-        { label: '14"x29"', width: 14, height: 29, variantId: 105489, price: 1500, printAreaWidth: 1650, printAreaHeight: 1650 },
-        { label: '18"x36"', width: 18, height: 36, variantId: 105505, price: 2000, printAreaWidth: 2475, printAreaHeight: 1575 },
-        { label: '24"x48"', width: 24, height: 48, variantId: 105497, price: 2200, printAreaWidth: 3150, printAreaHeight: 1050 },
-      ]}],
-    }],
+    colors: [
+      { label: 'White', hex: '#f0f0f0', finishes: [{ label: 'Standard', sizes: [
+        { label: '24"x14"', width: 24, height: 14, variantId: 399189, price: 1500, printAreaWidth: 7350, printAreaHeight: 4350 },
+        { label: '18"x16"', width: 18, height: 16, variantId: 399191, price: 2000, printAreaWidth: 5550, printAreaHeight: 4950 },
+        { label: '36"x18"', width: 36, height: 18, variantId: 399192, price: 2500, printAreaWidth: 10950, printAreaHeight: 5550 },
+        { label: '48"x24"', width: 48, height: 24, variantId: 399193, price: 3200, printAreaWidth: 14550, printAreaHeight: 7350 },
+      ]}]},
+      { label: 'Black', hex: '#1a1a1a', finishes: [{ label: 'Standard', sizes: [
+        { label: '14.5"x12.2"', width: 15, height: 12, variantId: 399190, price: 1500, printAreaWidth: 4709, printAreaHeight: 3984 },
+      ]}]},
+    ],
   },
   {
     id: 'car-magnet',
