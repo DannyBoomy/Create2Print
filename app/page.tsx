@@ -65,6 +65,18 @@ const PRODUCT_IMAGES: Record<string, string> = {
   'matte-canvas': '/product-matte-canvas.png',
   'matte-canvas-framed': '/product-framed-canvas.png',
   'wall-tapestry': '/product-tapestry.png',
+  'ceramic-mug': '/product-ceramic-mug.png',
+  'tumbler-20oz': '/product-20oz-tumbler.png',
+  'ceramic-coaster': '/product-ceramic-coaster.png',
+  'desk-mat': '/product-edge-stitched-desk-mat.png',
+  'car-magnet': '/product-car-sticker.png',
+  'shower-curtain': '/product-shower-curtain.png',
+  'puzzle': '/product-puzzle.png',
+  'gift-wrapping-paper': '/product-gift-wrapping-paper.png',
+  'arctic-fleece-blanket': '/product-arctic-fleece-blanket.png',
+  'fleece-sherpa-blanket': '/product-sherpa-fleece-blanket.png',
+  'area-rug': '/product-area-rug.png',
+  'velveteen-plush-blanket': '/product-placeholder.png',
 }
 
 function getRandomPrompts() {
@@ -970,11 +982,18 @@ export default function Home() {
                     <article onClick={() => handleProductSelect(product)}
                       className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
                       <div className="overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
-                        <img
-                          src={PRODUCT_IMAGES[product.id]}
-                          alt={product.name}
-                          className="w-full h-full object-contain transition duration-500 group-hover:scale-[1.025]"
-                        />
+                        {PRODUCT_IMAGES[product.id] && PRODUCT_IMAGES[product.id] !== '/product-placeholder.png' ? (
+                          <img
+                            src={PRODUCT_IMAGES[product.id]}
+                            alt={product.name}
+                            className="w-full h-full object-contain transition duration-500 group-hover:scale-[1.025]"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                            <span className="text-6xl">{product.emoji}</span>
+                            <span className="text-xs text-[#8a89a8] font-medium">Coming soon</span>
+                          </div>
+                        )}
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
