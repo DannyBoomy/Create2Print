@@ -43,6 +43,10 @@ function getBlueprintId(productId: string): number {
   return PRODUCTS.find(p => p.id === productId)?.printifyBlueprintId || 1220
 }
 
+function getPrintProviderId(productId: string): number {
+  return PRODUCTS.find(p => p.id === productId)?.printifyPrintProviderId || 99
+}
+
 function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
@@ -297,7 +301,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
           body: JSON.stringify({
             imageUrl: share.image_url,
             blueprintId: getBlueprintId(share.product_id),
-            printProviderId: 99,
+            printProviderId: getPrintProviderId(share.product_id),
             variantId: share.variant_id,
           })
         })
@@ -339,7 +343,7 @@ export default function SharedDesignClient({ share }: { share: Share }) {
         body: JSON.stringify({
           printifyImageId,
           blueprintId: getBlueprintId(share.product_id),
-          printProviderId: 99,
+          printProviderId: getPrintProviderId(share.product_id),
           variantId: share.variant_id,
           shipping,
         })
