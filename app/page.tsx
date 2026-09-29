@@ -609,7 +609,12 @@ export default function Home() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxStartIdx, setLightboxStartIdx] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('c2p_cart')
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
   const [cartOpen, setCartOpen] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [quantityInput, setQuantityInput] = useState('1')
@@ -622,8 +627,8 @@ export default function Home() {
   const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
   const [shippingCost, setShippingCost] = useState(599)
   const [loadingShipping, setLoadingShipping] = useState(false)
-  // Use cart total if cart has items, otherwise use current preview item
-  const checkoutItems = cart.length > 0 ? cart : (selectedSize && activeImage ? [{
+  // Current preview item (always reflects what's on screen)
+  const currentPreviewItem = (selectedSize && activeImage) ? {
     id: 'current',
     productId: selectedProduct?.id || '',
     productName: selectedProduct?.name || '',
@@ -638,8 +643,12 @@ export default function Home() {
     blueprintId: selectedProduct?.printifyBlueprintId || 0,
     printProviderId: selectedProduct?.printifyPrintProviderId || 0,
     mockupUrl: mockupUrls[0],
-  }] : [])
+  } : null
+  // For shipping/payment: use cart if has items, else current preview item
+  const checkoutItems = cart.length > 0 ? cart : (currentPreviewItem ? [currentPreviewItem] : [])
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // Preview subtotal always shows just the current item
+  const previewSubtotal = currentPreviewItem ? currentPreviewItem.price * currentPreviewItem.quantity : 0
   const total = checkoutSubtotal + shippingCost
 
   // Derived color/finish/size options
@@ -715,7 +724,11 @@ export default function Home() {
                 blueprintId: product.printifyBlueprintId,
                 printProviderId: product.printifyPrintProviderId,
               }
-              setCart(prev => [...prev, cartItem])
+              setCart(prev => {
+                const next = [...prev, cartItem]
+                try { localStorage.setItem('c2p_cart', JSON.stringify(next)) } catch {}
+                return next
+              })
               setCartOpen(true)
             } else {
               setStep('preview')
@@ -757,22 +770,31 @@ export default function Home() {
   const fetchShipping = async (country: string, state?: string) => {
     setLoadingShipping(true)
     try {
-      // Use first cart item or current item for shipping calculation
-      const firstItem = checkoutItems[0]
-      if (!firstItem) { setLoadingShipping(false); return }
-      const res = await fetch('/api/shipping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          blueprintId: firstItem.blueprintId,
-          printProviderId: firstItem.printProviderId,
-          variantId: firstItem.variantId,
-          country,
-          state,
+      const items = checkoutItems
+      if (items.length === 0) { setLoadingShipping(false); return }
+      // Fetch shipping for each unique product and sum them
+      let totalShipping = 0
+      for (const item of items) {
+        const res = await fetch('/api/shipping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blueprintId: item.blueprintId,
+            printProviderId: item.printProviderId,
+            variantId: item.variantId,
+            country,
+            state,
+          })
         })
-      })
-      const data = await res.json()
-      if (data.shipping) setShippingCost(data.shipping)
+        const data = await res.json()
+        if (data.shipping) {
+          // First item pays full shipping, additional quantities are cheaper
+          // Approximate: first item full rate, additional items 40% of rate
+          const baseShipping = data.shipping
+          totalShipping += baseShipping + (item.quantity - 1) * Math.round(baseShipping * 0.4)
+        }
+      }
+      if (totalShipping > 0) setShippingCost(totalShipping)
     } catch {}
     setLoadingShipping(false)
   }
@@ -831,6 +853,8 @@ export default function Home() {
       const data = await res.json()
       if (data.orderId) setOrderId(data.orderId)
     } catch {}
+    setCart([])
+    try { localStorage.removeItem('c2p_cart') } catch {}
     setStep('confirm')
   }
 
@@ -936,17 +960,29 @@ export default function Home() {
       printProviderId: selectedProduct.printifyPrintProviderId,
       mockupUrl: mockupUrls[0] || undefined,
     }
-    setCart(prev => [...prev, item])
+    setCart(prev => {
+      const next = [...prev, item]
+      try { localStorage.setItem('c2p_cart', JSON.stringify(next)) } catch {}
+      return next
+    })
     setCartOpen(true)
   }
 
   const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id))
+    setCart(prev => {
+      const next = prev.filter(item => item.id !== id)
+      try { localStorage.setItem('c2p_cart', JSON.stringify(next)) } catch {}
+      return next
+    })
   }
 
   const updateCartQuantity = (id: string, qty: number) => {
     if (qty < 1) return
-    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: qty } : item))
+    setCart(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, quantity: qty } : item)
+      try { localStorage.setItem('c2p_cart', JSON.stringify(next)) } catch {}
+      return next
+    })
   }
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -1623,24 +1659,16 @@ export default function Home() {
               </div>
             )}
 
-            {/* Order summary */}
+            {/* Order summary — always shows current item being previewed */}
             <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff] max-w-2xl mx-auto">
-              {/* Cart items if any */}
+              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
+                <span>{quantity > 1 ? `${quantity}x ` : ''}{selectedProduct?.name} · {selectedSize?.label}</span>
+                <span>{formatPrice((selectedSize?.price || 0) * quantity)}</span>
+              </div>
               {cart.length > 0 && (
-                <div className="mb-3 pb-3 border-b border-[#ddd9f7] space-y-2">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm text-[#747aa2]">
-                      <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.productName} · {item.sizeLabel}</span>
-                      <span>{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Current item if no cart */}
-              {cart.length === 0 && (
-                <div className="flex justify-between text-sm text-[#747aa2] mb-2">
-                  <span>{quantity > 1 ? `${quantity}x ` : ''}{selectedProduct?.name} · {selectedSize?.label}</span>
-                  <span>{formatPrice((selectedSize?.price || 0) * quantity)}</span>
+                <div className="flex justify-between text-xs text-[#8a89a8] mb-2">
+                  <span>+ {cart.length} item{cart.length !== 1 ? 's' : ''} in cart</span>
+                  <button onClick={() => setCartOpen(true)} className="text-[#6d3df3] font-bold">View cart →</button>
                 </div>
               )}
               <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
@@ -1648,7 +1676,7 @@ export default function Home() {
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Subtotal</span>
-                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(checkoutSubtotal)}</span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(previewSubtotal)}</span>
               </div>
             </div>
 
