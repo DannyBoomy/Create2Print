@@ -934,7 +934,7 @@ export default function Home() {
     setSelectedSize(size)
     setQuantity(1)
     setQuantityInput('1')
-    if (isMobile && selectedProduct) setTimeout(() => setStep('create'), 150)
+    // No auto-navigate on mobile — user taps continue button that appears below
   }
 
   const openLightbox = (idx: number) => {
@@ -1208,12 +1208,10 @@ export default function Home() {
                           <div>
                             <div className="mb-2 flex items-end justify-between">
                               <h2 className="text-[15px] font-extrabold">Select Size</h2>
-                              {isMobile
-                                ? <p className="text-xs text-[#6d3df3] font-semibold">Tap size to continue →</p>
-                                : <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
+                              <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>
                             </div>
                             <div className="overflow-y-auto" style={{ maxHeight: sizeOptions.length > 4 ? '280px' : 'none' }}>
-                              <div className="grid grid-cols-2 gap-2.5">
+                              <div className="grid grid-cols-2 gap-2.5 pt-2">
                                 {sizeOptions.map(size => {
                                   const shape = getSizeShape(size.width, size.height)
                                   const sel = selectedSize?.variantId === size.variantId
