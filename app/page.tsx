@@ -11,6 +11,23 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 type Step = 'product' | 'create' | 'preview' | 'shipping' | 'payment' | 'confirm'
 
+interface CartItem {
+  id: string
+  productId: string
+  productName: string
+  sizeLabel: string
+  variantId: number
+  price: number
+  quantity: number
+  imageUrl: string
+  prompt: string
+  color: string
+  finish: string
+  blueprintId: number
+  printProviderId: number
+  mockupUrl?: string
+}
+
 interface ShippingInfo {
   firstName: string; lastName: string; email: string
   address1: string; city: string; state: string; zip: string; country: string
@@ -75,7 +92,7 @@ const PRODUCT_IMAGES: Record<string, string> = {
   'gift-wrapping-paper': '/product-gift-wrapping-paper.png',
   'arctic-fleece-blanket': '/product-arctic-fleece-blanket.png',
   'fleece-sherpa-blanket': '/product-sherpa-fleece-blanket.png',
-  'area-rug': '/product-area-rug.png',
+  'area-rug': '/product-product-area-rug.png',
   'velveteen-plush-blanket': '/product-placeholder.png',
 }
 
@@ -592,6 +609,10 @@ export default function Home() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxStartIdx, setLightboxStartIdx] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [cartOpen, setCartOpen] = useState(false)
+  const [quantity, setQuantity] = useState(1)
+  const [quantityInput, setQuantityInput] = useState('1')
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -656,9 +677,31 @@ export default function Home() {
                 setLoadingMockup(false)
               }).catch(() => { setLoadingMockup(false) })
             }
+            const addToCartFlag = JSON.parse(stored).addToCart
             sessionStorage.removeItem('c2p_saved_order')
             window.history.replaceState({}, '', '/')
-            setStep('preview')
+            if (addToCartFlag) {
+              // Add to cart directly
+              const cartItem = {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                productId: product.id,
+                productName: product.name,
+                sizeLabel: sizeObj.label,
+                variantId: sizeObj.variantId,
+                price: sizeObj.price,
+                quantity: 1,
+                imageUrl: imageUrl,
+                prompt: savedPrompt || '',
+                color: colorLabel,
+                finish: finishLabel,
+                blueprintId: product.printifyBlueprintId,
+                printProviderId: product.printifyPrintProviderId,
+              }
+              setCart(prev => [...prev, cartItem])
+              setCartOpen(true)
+            } else {
+              setStep('preview')
+            }
           }
         }
       } catch {}
@@ -840,6 +883,8 @@ export default function Home() {
 
   const handleSizeSelect = (size: SizeOption) => {
     setSelectedSize(size)
+    setQuantity(1)
+    setQuantityInput('1')
     if (isMobile && selectedProduct) setTimeout(() => setStep('create'), 150)
   }
 
@@ -847,6 +892,40 @@ export default function Home() {
     setLightboxStartIdx(idx)
     setLightboxOpen(true)
   }
+
+  const addToCart = () => {
+    if (!selectedProduct || !selectedSize || !activeImage) return
+    const item: CartItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      sizeLabel: selectedSize.label,
+      variantId: selectedSize.variantId,
+      price: selectedSize.price,
+      quantity,
+      imageUrl: activeImage,
+      prompt,
+      color: selectedColor,
+      finish: selectedFinish,
+      blueprintId: selectedProduct.printifyBlueprintId,
+      printProviderId: selectedProduct.printifyPrintProviderId,
+      mockupUrl: mockupUrls[0] || undefined,
+    }
+    setCart(prev => [...prev, item])
+    setCartOpen(true)
+  }
+
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id))
+  }
+
+  const updateCartQuantity = (id: string, qty: number) => {
+    if (qty < 1) return
+    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: qty } : item))
+  }
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   const reset = () => {
     // Delete temp image from Supabase if exists
@@ -907,6 +986,21 @@ export default function Home() {
                 <span className="hidden sm:inline">Saved</span>
               </Link>
             )}
+            {/* Cart button */}
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#e0e0ed] bg-white text-xs font-bold text-[#071633] hover:border-[#6d3df3] hover:text-[#6d3df3] transition-all shadow-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              <span className="hidden sm:inline">Cart</span>
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-r from-[#6526f5] to-[#ff8c18] text-white text-[10px] font-extrabold flex items-center justify-center">
+                  {cartItemCount}
+                </span>
+              )}
+            </button>
             {session ? (
               <div className="flex items-center gap-2">
                 <button onClick={() => signOut()} className="flex items-center gap-2 group">
@@ -1048,7 +1142,7 @@ export default function Home() {
                           </div>
                         )}
 
-                        {/* Size selector — only show after finish selected (or if no finish choice) */}
+                        {/* Size selector — 2-column grid, max 2 rows visible, scrollable */}
                         {selectedFinish && (
                           <div>
                             <div className="mb-2 flex items-end justify-between">
@@ -1057,20 +1151,31 @@ export default function Home() {
                                 ? <p className="text-xs text-[#6d3df3] font-semibold">Tap size to continue →</p>
                                 : <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>}
                             </div>
-                            <div className="grid grid-cols-2 gap-2.5">
-                              {sizeOptions.map(size => {
-                                const shape = getSizeShape(size.width, size.height)
-                                const sel = selectedSize?.variantId === size.variantId
-                                return (
-                                  <button key={size.variantId} type="button" onClick={() => handleSizeSelect(size)}
-                                    className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
-                                    <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
-                                    <span className="text-[13px] font-extrabold">{size.label}</span>
-                                    <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
-                                  </button>
-                                )
-                              })}
+                            <div className="overflow-y-auto" style={{ maxHeight: sizeOptions.length > 4 ? '280px' : 'none' }}>
+                              <div className="grid grid-cols-2 gap-2.5">
+                                {sizeOptions.map(size => {
+                                  const shape = getSizeShape(size.width, size.height)
+                                  const sel = selectedSize?.variantId === size.variantId
+                                  return (
+                                    <button key={size.variantId} type="button" onClick={() => handleSizeSelect(size)}
+                                      className={`group flex flex-col items-center justify-center rounded-[14px] border bg-white shadow-[0_10px_22px_rgba(32,33,77,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d3df3] py-3 ${sel ? 'border-[#6d3df3] bg-[#f7f4ff] ring-2 ring-[#6d3df3]/10' : 'border-[#e7e7f0]'}`}>
+                                      <div className="mb-2 border border-[#283476] bg-[#f7f7fb]" style={{ width: shape.w, height: shape.h }} />
+                                      <span className="text-[13px] font-extrabold">{size.label}</span>
+                                      <span className="mt-0.5 text-[14px] font-extrabold text-[#5f28ef]">{formatPrice(size.price)}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
                             </div>
+                            {/* Continue button appears right under sizes when selected */}
+                            {selectedSize && (
+                              <button
+                                type="button"
+                                onClick={() => setStep('create')}
+                                className="mt-3 w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5">
+                                ✦ Continue — Design Your Art →
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1079,16 +1184,7 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* CTA — desktop only */}
-              <div className="hidden sm:block mx-auto mt-7 max-w-[580px] text-center">
-                <button type="button" onClick={() => { if (selectedProduct && selectedSize) setStep('create') }}
-                  disabled={!selectedProduct || !selectedSize} className={primaryBtn}>
-                  ✦ CONTINUE — DESIGN YOUR ART →
-                </button>
-                <p className="mt-2 text-sm text-[#878cac]">
-                  {!selectedProduct ? 'Select a product to continue' : !selectedFinish ? (selectedProduct.hasFinishes ? 'Select a finish to continue' : 'Select a color to continue') : !selectedSize ? 'Select a size to continue' : 'Ready! Click above to design your art'}
-                </p>
-              </div>
+              {/* No bottom CTA — continue button appears inline under sizes */}
 
               {/* Trust bar */}
               <div className="mx-auto mt-7 grid max-w-[1260px] grid-cols-2 gap-y-4 pb-8 pt-2 lg:grid-cols-4">
@@ -1459,11 +1555,11 @@ export default function Home() {
               </div>
             )}
 
-            {/* Share + Save buttons */}
+            {/* Share + Save buttons — one row */}
             {!loadingMockup && !modifying && activeImage && (
-              <div className="mb-6 max-w-2xl mx-auto space-y-3">
-                <ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} />
-                <div className="flex justify-center">
+              <div className="mb-6 max-w-2xl mx-auto">
+                <div className="flex items-center justify-center gap-3">
+                  <ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} />
                   <SaveDesignButton
                     image={activeImage}
                     prompt={prompt}
@@ -1517,9 +1613,50 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="max-w-2xl mx-auto">
-              <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Ship This to Me →</button>
-              <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-3 hover:text-[#6d3df3] transition-colors py-2">
+            <div className="max-w-2xl mx-auto space-y-3">
+              {/* Quantity selector */}
+              {!loadingMockup && !modifying && (
+                <div className="flex items-center justify-between rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] px-5 py-4">
+                  <span className="font-bold text-[#071633] text-sm">Quantity</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => { const q = Math.max(1, quantity - 1); setQuantity(q); setQuantityInput(String(q)) }}
+                      className="w-9 h-9 rounded-full border-2 border-[#ddd9f7] bg-white text-[#6d3df3] font-extrabold text-lg flex items-center justify-center hover:border-[#6d3df3] transition-all active:scale-95">−</button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={quantityInput}
+                      onChange={e => setQuantityInput(e.target.value)}
+                      onBlur={() => {
+                        const q = Math.max(1, parseInt(quantityInput) || 1)
+                        setQuantity(q)
+                        setQuantityInput(String(q))
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const q = Math.max(1, parseInt(quantityInput) || 1)
+                          setQuantity(q)
+                          setQuantityInput(String(q))
+                          e.currentTarget.blur()
+                        }
+                      }}
+                      className="w-12 text-center font-extrabold text-[#071633] text-lg border-2 border-[#ddd9f7] rounded-xl py-1 outline-none focus:border-[#6d3df3] transition-all"
+                    />
+                    <button
+                      onClick={() => { const q = quantity + 1; setQuantity(q); setQuantityInput(String(q)) }}
+                      className="w-9 h-9 rounded-full border-2 border-[#ddd9f7] bg-white text-[#6d3df3] font-extrabold text-lg flex items-center justify-center hover:border-[#6d3df3] transition-all active:scale-95">+</button>
+                  </div>
+                  <span className="font-extrabold text-[#5924f5] text-sm">{formatPrice((selectedSize?.price || 0) * quantity)}</span>
+                </div>
+              )}
+              <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Checkout →</button>
+              <button
+                onClick={addToCart}
+                disabled={loadingMockup || modifying}
+                className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-8 py-[17px] text-[17px] font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                🛒 Add to Cart
+              </button>
+              <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-1 hover:text-[#6d3df3] transition-colors py-2">
                 Start over with a different design
               </button>
             </div>
@@ -1625,6 +1762,73 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* ── Cart Drawer ── */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-[9999] flex">
+          <div className="flex-1 bg-black/40" onClick={() => setCartOpen(false)} />
+          <div className="w-full max-w-md bg-white h-full flex flex-col shadow-2xl" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#e5e6ef]">
+              <h2 className="font-extrabold text-[#071633] text-lg">Your Cart ({cartItemCount})</h2>
+              <button onClick={() => setCartOpen(false)} className="w-9 h-9 rounded-full bg-[#f0ecff] flex items-center justify-center text-[#6d3df3] hover:bg-[#e4dcff] transition-all">✕</button>
+            </div>
+
+            {cart.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+                <div className="text-5xl">🛒</div>
+                <p className="font-bold text-[#071633]">Your cart is empty</p>
+                <p className="text-[#747aa2] text-sm">Add something to get started.</p>
+                <button onClick={() => { setCartOpen(false); setStep('product') }}
+                  className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6526f5] to-[#ff8c18] text-white font-bold text-sm">
+                  Browse Products
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex gap-3 bg-[#f9f7ff] rounded-2xl p-3 border border-[#ede9fe]">
+                      <img src={item.mockupUrl || item.imageUrl} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[#071633] text-sm truncate">{item.productName}</p>
+                        <p className="text-xs text-[#747aa2] truncate">{[item.color !== 'Default' ? item.color : null, item.finish !== 'Standard' ? item.finish : null, item.sizeLabel].filter(Boolean).join(' · ')}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                            className="w-6 h-6 rounded-full border border-[#ddd9f7] text-[#6d3df3] text-sm font-bold flex items-center justify-center hover:border-[#6d3df3]">−</button>
+                          <span className="text-sm font-bold text-[#071633] w-6 text-center">{item.quantity}</span>
+                          <button onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                            className="w-6 h-6 rounded-full border border-[#ddd9f7] text-[#6d3df3] text-sm font-bold flex items-center justify-center hover:border-[#6d3df3]">+</button>
+                          <span className="ml-auto font-extrabold text-[#5924f5] text-sm">{formatPrice(item.price * item.quantity)}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => removeFromCart(item.id)}
+                        className="w-6 h-6 rounded-full bg-[#f0ecff] text-[#6d3df3] text-xs flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-all flex-shrink-0">✕</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => { setCartOpen(false); setStep('product'); setSelectedProduct(null); setSelectedSize(null) }}
+                    className="w-full py-3 rounded-2xl border-2 border-dashed border-[#ddd9f7] text-[#6d3df3] text-sm font-bold hover:border-[#6d3df3] transition-all">
+                    + Add another item
+                  </button>
+                </div>
+
+                <div className="p-5 border-t border-[#e5e6ef] space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#747aa2] text-sm">Subtotal</span>
+                    <span className="font-extrabold text-[#071633] text-lg">{formatPrice(cartTotal)}</span>
+                  </div>
+                  <p className="text-xs text-[#8a89a8]">Shipping calculated at checkout</p>
+                  <button
+                    onClick={() => { setCartOpen(false); setStep('shipping') }}
+                    className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5">
+                    ✦ Checkout →
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <footer className="border-t border-[#e5e6ef] bg-white/40">
         <div className="mx-auto flex max-w-[1540px] items-center justify-between px-4 sm:px-8 py-5 text-sm text-[#757b9f]">
