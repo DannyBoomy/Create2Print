@@ -75,9 +75,8 @@ export async function GET(req: NextRequest) {
         // Sample first 5 variants to keep response manageable
         sampleVariants: variants.slice(0, 5),
         // All unique colors
-        colors: [...new Set(variants.map((v: any) => v.options?.color).filter(Boolean))],
-        // All unique sizes
-        sizes: [...new Set(variants.map((v: any) => v.options?.size).filter(Boolean))],
+        colors: Array.from(new Set(variants.map((v: any) => v.options?.color).filter(Boolean))),
+        sizes: Array.from(new Set(variants.map((v: any) => v.options?.size).filter(Boolean))),
         // Print area from first variant
         printArea: variants[0]?.placeholders?.[0] ? {
           width: variants[0].placeholders[0].width,
