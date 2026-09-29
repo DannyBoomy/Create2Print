@@ -680,7 +680,7 @@ export default function Home() {
             const addToCartFlag = JSON.parse(stored).addToCart
             sessionStorage.removeItem('c2p_saved_order')
             window.history.replaceState({}, '', '/')
-            if (addToCartFlag) {
+            if (addToCartFlag && sizeObj) {
               // Add to cart directly
               const cartItem = {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
