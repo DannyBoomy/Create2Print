@@ -622,7 +622,25 @@ export default function Home() {
   const allPreviewUrls = activeImage ? [activeImage, ...mockupUrls] : mockupUrls
   const [shippingCost, setShippingCost] = useState(599)
   const [loadingShipping, setLoadingShipping] = useState(false)
-  const total = (selectedSize?.price || 0) + shippingCost
+  // Use cart total if cart has items, otherwise use current preview item
+  const checkoutItems = cart.length > 0 ? cart : (selectedSize && activeImage ? [{
+    id: 'current',
+    productId: selectedProduct?.id || '',
+    productName: selectedProduct?.name || '',
+    sizeLabel: selectedSize.label,
+    variantId: selectedSize.variantId,
+    price: selectedSize.price,
+    quantity,
+    imageUrl: activeImage,
+    prompt,
+    color: selectedColor,
+    finish: selectedFinish,
+    blueprintId: selectedProduct?.printifyBlueprintId || 0,
+    printProviderId: selectedProduct?.printifyPrintProviderId || 0,
+    mockupUrl: mockupUrls[0],
+  }] : [])
+  const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const total = checkoutSubtotal + shippingCost
 
   // Derived color/finish/size options
   const colorOptions: ColorOption[] = selectedProduct?.colors || []
@@ -737,16 +755,18 @@ export default function Home() {
   }
 
   const fetchShipping = async (country: string, state?: string) => {
-    if (!selectedProduct || !selectedSize) return
     setLoadingShipping(true)
     try {
+      // Use first cart item or current item for shipping calculation
+      const firstItem = checkoutItems[0]
+      if (!firstItem) { setLoadingShipping(false); return }
       const res = await fetch('/api/shipping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          blueprintId: selectedProduct.printifyBlueprintId,
-          printProviderId: selectedProduct.printifyPrintProviderId,
-          variantId: selectedSize.variantId,
+          blueprintId: firstItem.blueprintId,
+          printProviderId: firstItem.printProviderId,
+          variantId: firstItem.variantId,
           country,
           state,
         })
@@ -781,9 +801,10 @@ export default function Home() {
 
   const createPaymentIntent = async () => {
     try {
+      const productNames = checkoutItems.map(i => `${i.quantity > 1 ? i.quantity + 'x ' : ''}${i.productName}`).join(', ')
       const res = await fetch('/api/payment', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: total, productName: selectedProduct?.name, size: selectedSize?.label })
+        body: JSON.stringify({ amount: total, productName: productNames, size: checkoutItems[0]?.sizeLabel })
       })
       const data = await res.json()
       if (data.clientSecret) setClientSecret(data.clientSecret)
@@ -791,15 +812,19 @@ export default function Home() {
   }
 
   const placeOrder = async () => {
-    if (!printifyImageId || !selectedProduct || !selectedSize) return
     try {
+      // Place order for each cart item (or current item if no cart)
+      const items = checkoutItems
+      if (items.length === 0) return
+      // For now place first item — multi-item order support can be added when order API supports it
+      const firstItem = items[0]
       const res = await fetch('/api/order', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           printifyImageId,
-          blueprintId: selectedProduct.printifyBlueprintId,
-          printProviderId: selectedProduct.printifyPrintProviderId,
-          variantId: selectedSize.variantId,
+          blueprintId: firstItem.blueprintId,
+          printProviderId: firstItem.printProviderId,
+          variantId: firstItem.variantId,
           shipping
         })
       })
@@ -1600,16 +1625,30 @@ export default function Home() {
 
             {/* Order summary */}
             <div className="rounded-2xl p-5 mb-5 border-2 border-[#ddd9f7] bg-[#f9f7ff] max-w-2xl mx-auto">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
-                <span>{selectedProduct?.name} · {selectedSize?.label}</span>
-                <span>{formatPrice(selectedSize?.price || 0)}</span>
-              </div>
+              {/* Cart items if any */}
+              {cart.length > 0 && (
+                <div className="mb-3 pb-3 border-b border-[#ddd9f7] space-y-2">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex justify-between text-sm text-[#747aa2]">
+                      <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.productName} · {item.sizeLabel}</span>
+                      <span>{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Current item if no cart */}
+              {cart.length === 0 && (
+                <div className="flex justify-between text-sm text-[#747aa2] mb-2">
+                  <span>{quantity > 1 ? `${quantity}x ` : ''}{selectedProduct?.name} · {selectedSize?.label}</span>
+                  <span>{formatPrice((selectedSize?.price || 0) * quantity)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
                 <span>Shipping</span><span>Calculated at checkout</span>
               </div>
               <div className="flex justify-between font-extrabold text-[#071633] text-lg">
                 <span>Subtotal</span>
-                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(selectedSize?.price || 0)}</span>
+                <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{formatPrice(checkoutSubtotal)}</span>
               </div>
             </div>
 
@@ -1646,7 +1685,7 @@ export default function Home() {
                       onClick={() => { const q = quantity + 1; setQuantity(q); setQuantityInput(String(q)) }}
                       className="w-9 h-9 rounded-full border-2 border-[#ddd9f7] bg-white text-[#6d3df3] font-extrabold text-lg flex items-center justify-center hover:border-[#6d3df3] transition-all active:scale-95">+</button>
                   </div>
-                  <span className="font-extrabold text-[#5924f5] text-sm">{formatPrice((selectedSize?.price || 0) * quantity)}</span>
+
                 </div>
               )}
               <button onClick={() => setStep('shipping')} disabled={loadingMockup || modifying} className={primaryBtn}>✦ Checkout →</button>
@@ -1669,6 +1708,59 @@ export default function Home() {
             <button onClick={() => setStep('preview')} className={backBtn}>← Back to preview</button>
             <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Where should we send it?</h2>
             <p className="text-[#747aa2] text-sm mb-6">Worldwide shipping available.</p>
+
+            {/* Cart summary — editable */}
+            <div className="rounded-2xl border-2 border-[#ddd9f7] bg-[#f9f7ff] p-4 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest">Your Order</p>
+                <button
+                  onClick={() => setCartOpen(true)}
+                  className="text-xs text-[#6d3df3] font-bold hover:text-[#5924f5] transition-colors">
+                  Edit cart →
+                </button>
+              </div>
+              <div className="space-y-3">
+                {checkoutItems.map(item => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <img src={item.mockupUrl || item.imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-[#071633] truncate">{item.productName}</p>
+                      <p className="text-xs text-[#747aa2]">{item.sizeLabel}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <button onClick={() => {
+                          if (item.id === 'current') { const q = Math.max(1, quantity - 1); setQuantity(q); setQuantityInput(String(q)) }
+                          else updateCartQuantity(item.id, item.quantity - 1)
+                        }} className="w-5 h-5 rounded-full border border-[#ddd9f7] text-[#6d3df3] text-xs font-bold flex items-center justify-center">−</button>
+                        <span className="text-xs font-bold text-[#071633]">{item.quantity}</span>
+                        <button onClick={() => {
+                          if (item.id === 'current') { const q = quantity + 1; setQuantity(q); setQuantityInput(String(q)) }
+                          else updateCartQuantity(item.id, item.quantity + 1)
+                        }} className="w-5 h-5 rounded-full border border-[#ddd9f7] text-[#6d3df3] text-xs font-bold flex items-center justify-center">+</button>
+                        {item.id !== 'current' && (
+                          <button onClick={() => removeFromCart(item.id)} className="ml-1 text-[#8a89a8] hover:text-red-500 text-xs">✕</button>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-extrabold text-[#5924f5] text-sm flex-shrink-0">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t border-[#ddd9f7] space-y-1">
+                <div className="flex justify-between text-sm text-[#747aa2]">
+                  <span>Subtotal</span>
+                  <span className="font-bold text-[#071633]">{formatPrice(checkoutSubtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-[#747aa2]">
+                  <span>Shipping</span>
+                  <span>{loadingShipping ? 'Calculating...' : formatPrice(shippingCost)}</span>
+                </div>
+                <div className="flex justify-between font-extrabold text-[#071633]">
+                  <span>Total</span>
+                  <span className="bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">{loadingShipping ? '...' : formatPrice(total)}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <input className={inputClass} placeholder="First name *" value={shipping.firstName} onChange={e => setShipping(p => ({ ...p, firstName: e.target.value }))} />
@@ -1691,17 +1783,6 @@ export default function Home() {
                 </select>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-2xl p-4 mt-5 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div>
-                <div className="text-sm text-[#747aa2]">{selectedProduct?.name} · {selectedSize?.label}</div>
-                <div className="text-xs text-[#8a89a8] mt-0.5">
-                  Shipping: {loadingShipping ? 'Calculating...' : formatPrice(shippingCost)}
-                </div>
-              </div>
-              <span className="font-extrabold bg-gradient-to-r from-[#6d3df3] to-[#ff8c18] bg-clip-text text-transparent">
-                {loadingShipping ? '...' : formatPrice(total)}
-              </span>
-            </div>
             {error && <div className="mt-4 bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
             <div className="mt-5">
               <button onClick={handleShippingContinue} className={primaryBtn}>Continue to Payment →</button>
@@ -1716,11 +1797,13 @@ export default function Home() {
             <h2 className="font-extrabold text-2xl sm:text-3xl mb-1 text-[#071633]">Secure Checkout</h2>
             <p className="text-[#747aa2] text-sm mb-6">Powered by Stripe. Your card info is never stored.</p>
             <div className="rounded-2xl p-5 mb-6 border-2 border-[#ddd9f7] bg-[#f9f7ff]">
-              <div className="flex justify-between text-sm text-[#747aa2] mb-2">
-                <span>{selectedProduct?.name} · {selectedSize?.label}</span>
-                <span>{formatPrice(selectedSize?.price || 0)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7]">
+              {checkoutItems.map(item => (
+                <div key={item.id} className="flex justify-between text-sm text-[#747aa2] mb-2">
+                  <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.productName} · {item.sizeLabel}</span>
+                  <span>{formatPrice(item.price * item.quantity)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm text-[#747aa2] mb-3 pb-3 border-b border-[#ddd9f7] mt-2">
                 <span>Shipping to {shipping.country}</span>
                 <span>{formatPrice(shippingCost)}</span>
               </div>
