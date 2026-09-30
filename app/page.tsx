@@ -1219,8 +1219,8 @@ export default function Home() {
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id}>
                     <article onClick={() => handleProductSelect(product)}
-                      className={`group relative overflow-hidden rounded-[16px] border p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.05)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.10)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] bg-[#fafafa] ring-2 ring-[#6d3df3]/10' : 'border-transparent bg-transparent'}`}>
-                      <div className="relative overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
+                      className={`group relative overflow-hidden rounded-[16px] border p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
+                      <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '4/3' }}>
                         {product.customImage ? (
                           <>
                             <img src={product.customImage} alt={product.name}
