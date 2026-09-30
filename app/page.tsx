@@ -1165,34 +1165,18 @@ export default function Home() {
             </div>
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
-              <div className="relative mb-8 sm:mb-4">
+              <div className="relative mb-8 sm:mb-6">
                 {/* Mobile hero */}
                 <div className="flex flex-col items-center text-center sm:hidden pt-2 pb-2">
-                  <img src="/logo.png" alt="Create2Print" className="h-20 w-auto object-contain mb-4" />
-                  <p className="text-[15px] leading-7 text-[#48527a] max-w-[300px]">
-                    Describe any artwork. We generate it, print it, and ship it to your door.
-                  </p>
+                  <h1 className="font-bold text-[#071633]" style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 8vw, 48px)' }}>UMakeStudio</h1>
+                  <p className="text-[13px] tracking-[0.18em] uppercase text-[#747aa2] mt-1">Imagine &nbsp;|&nbsp; Create &nbsp;|&nbsp; Ship</p>
                 </div>
 
                 {/* Desktop hero */}
                 <div className="hidden sm:block">
                   <div className="mx-auto max-w-[720px] text-center">
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ede7ff] px-4 py-1.5 text-xs font-bold text-[#5723d9]">
-                      <span>✦</span><span>AI-Powered Print Shop</span>
-                    </div>
-                    <div className="relative pb-5">
-                      <span className="absolute -left-8 top-20 text-3xl text-[#5e31ed]">✦</span>
-                      <span className="absolute -right-8 top-4 text-3xl text-[#c43cf1]">✦</span>
-                      <span className="absolute left-10 -top-3 text-3xl text-[#ff9718]">✦</span>
-                      <h1 className="font-extrabold leading-[0.95] tracking-[-0.045em]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                        <span className="block text-[#071633]" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Create It.</span>
-                        <span className="block bg-gradient-to-r from-[#6d3df3] via-[#ef48a7] to-[#ff8c18] bg-clip-text text-transparent" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Print It.</span>
-                        <span className="block bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-[#f97316] bg-clip-text text-transparent pb-2" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)' }}>Hang It.</span>
-                      </h1>
-                    </div>
-                    <p className="mx-auto mt-2 max-w-[580px] text-[17px] leading-7 text-[#48527a]">
-                      Describe any artwork. We generate it, print it, and ship it to your door.
-                    </p>
+                    <h1 className="font-bold text-[#071633]" style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(48px, 6vw, 80px)', letterSpacing: '-0.02em' }}>UMakeStudio</h1>
+                    <p className="text-[13px] tracking-[0.22em] uppercase text-[#747aa2] mt-2">Imagine &nbsp;|&nbsp; Create &nbsp;|&nbsp; Ship</p>
                   </div>
                 </div>
               </div>
@@ -1237,7 +1221,7 @@ export default function Home() {
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id}>
                     <article onClick={() => handleProductSelect(product)}
-                      className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
+                      className={`group relative overflow-hidden rounded-[16px] border p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.05)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.10)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] bg-[#fafafa] ring-2 ring-[#6d3df3]/10' : 'border-transparent bg-transparent'}`}>
                       <div className="relative overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
                         {product.customImage ? (
                           <>
@@ -1265,7 +1249,7 @@ export default function Home() {
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                        <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2] overflow-hidden line-clamp-2">{product.description}</p>
+                        <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#4a5070] overflow-hidden line-clamp-2">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
                             <div className="text-[11px] text-[#747aa2]">from</div>
