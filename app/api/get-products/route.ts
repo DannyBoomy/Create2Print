@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       const colors = Array.from(colorMap.entries()).map(([colorLabel, finishMapInner]) => {
         const finishes = Array.from(finishMapInner.entries()).map(([finishLabel, finishVariants]) => {
           const sizes = finishVariants.map((v: any) => {
-            const printArea = v.placeholders?.[0] || {}
+            const placeholder = v.placeholders?.[0] || null
             const productionCents = v.cost || 0
             const shippingCents = row.shipping_cents || 0
             const prodWithPremium = Math.round(productionCents * 0.8)
@@ -56,14 +56,18 @@ export async function GET(req: NextRequest) {
               ? Math.round(((prodWithPremium + shippingCents + 30) / (1 - 0.30 - 0.029)) / 50) * 50
               : Math.round((prodWithPremium / 0.671) / 50) * 50
 
+            // Use actual print area dimensions, fall back to blueprint defaults
+            const pw = placeholder?.width || BLUEPRINT_PRINT_AREAS[row.blueprint_id]?.width || 3000
+            const ph = placeholder?.height || BLUEPRINT_PRINT_AREAS[row.blueprint_id]?.height || 3000
+
             return {
               label: v.options?.size || v.title,
-              width: printArea.width ? Math.round(printArea.width / 100) : 10,
-              height: printArea.height ? Math.round(printArea.height / 100) : 10,
+              width: pw ? Math.round(pw / 100) : 10,
+              height: ph ? Math.round(ph / 100) : 10,
               variantId: v.id,
               price: retailCents || 2000,
-              printAreaWidth: printArea.width || 3000,
-              printAreaHeight: printArea.height || 3000,
+              printAreaWidth: pw,
+              printAreaHeight: ph,
               placeholderCount: v.placeholders?.length || 1,
             }
           })
@@ -155,6 +159,47 @@ function shortDescription(title: string, rawDescription: string): string {
   const clean = stripHtml(rawDescription)
   const firstSentence = clean.split(/[.!?]/)[0]
   return firstSentence.length > 10 ? firstSentence.trim() + '.' : clean.slice(0, 120).trim()
+}
+
+// Default print area dimensions per blueprint (used when API doesn't return placeholder data)
+const BLUEPRINT_PRINT_AREAS: Record<number, { width: number; height: number }> = {
+  // Wall Art
+  1220: { width: 7200, height: 10800 },  // Rolled Poster (24x36 largest)
+  1159: { width: 6000, height: 7200 },   // Matte Canvas
+  944:  { width: 4800, height: 6000 },   // Framed Canvas
+  241:  { width: 10650, height: 12525 }, // Wall Tapestry
+  282:  { width: 5400, height: 7200 },   // Matte Vertical Posters
+  // Drinkware
+  479:  { width: 2327, height: 1086 },   // Black Mug (landscape wrap)
+  635:  { width: 2327, height: 1086 },   // Accent Coffee Mug (landscape wrap)
+  353:  { width: 2795, height: 2100 },   // Tumbler (landscape wrap)
+  951:  { width: 2800, height: 2100 },   // Can Cooler (landscape wrap)
+  // Home & Living
+  235:  { width: 7104, height: 7392 },   // Shower Curtain (square-ish)
+  438:  { width: 7494, height: 11100 },  // Area Rug
+  1328: { width: 9561, height: 12699 },  // Arctic Fleece Blanket
+  238:  { width: 9375, height: 12375 },  // Sherpa Blanket
+  522:  { width: 9300, height: 12300 },  // Velveteen Plush Blanket
+  1626: { width: 9000, height: 6000 },   // Woven Blanket (landscape)
+  938:  { width: 3300, height: 4500 },   // Glass Cutting Board
+  10665: { width: 10950, height: 5550 }, // Desk Mat (landscape)
+  // Gifts
+  1149: { width: 5768, height: 8700 },   // Puzzle
+  1100: { width: 5874, height: 14614 },  // Gift Wrap
+  1523: { width: 1260, height: 1260 },   // Ceramic Coaster (square)
+  // Accessories
+  1464: { width: 3150, height: 1050 },   // Car Magnet (landscape)
+  421:  { width: 1332, height: 2051 },   // Tough Cases (portrait)
+  1273: { width: 1332, height: 2051 },   // Magnetic Cases (portrait)
+  1313: { width: 3600, height: 3600 },   // Canvas Tote Bag (square)
+  1389: { width: 3600, height: 3600 },   // Tote Bag AOP (square)
+  1447: { width: 2400, height: 1200 },   // Dad Cap (landscape)
+  1743: { width: 2400, height: 1200 },   // Snapback Trucker Cap (landscape)
+  // Apparel
+  706:  { width: 4200, height: 5100 },   // Garment Dyed T-shirt
+  49:   { width: 4200, height: 5100 },   // Crewneck Sweatshirt
+  77:   { width: 4200, height: 5100 },   // Hoodie
+  5:    { width: 4200, height: 5100 },   // Cotton Crew Tee
 }
 
 function getColorHex(color: string): string {

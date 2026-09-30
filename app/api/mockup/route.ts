@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     console.log('Upload success, image ID:', printifyImageId)
 
     const scale = 1.0
+    // Note: ensure AI generates correct aspect ratio by using printAreaWidth/Height from product
 
     const payload = {
       title: 'Create2Print Preview',
