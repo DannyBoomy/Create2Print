@@ -935,11 +935,31 @@ export default function Home() {
     setStep('payment')
   }
 
-  const handleSizeSelect = (size: SizeOption) => {
+  const handleSizeSelect = async (size: SizeOption) => {
     setSelectedSize(size)
     setQuantity(1)
     setQuantityInput('1')
-    // No auto-navigate on mobile — user taps continue button that appears below
+
+    // Fetch exact print area dimensions from Printify for this specific variant
+    if (selectedProduct && (!size.printAreaWidth || !size.printAreaHeight)) {
+      try {
+        const res = await fetch(
+          `/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`
+        )
+        const data = await res.json()
+        const variants = data?.variants || []
+        const variant = variants.find((v: any) => v.id === size.variantId)
+        if (variant?.placeholders?.[0]) {
+          const p = variant.placeholders[0]
+          setSelectedSize({
+            ...size,
+            printAreaWidth: p.width,
+            printAreaHeight: p.height,
+            printAreaPosition: p.position,
+          })
+        }
+      } catch {}
+    }
   }
 
   const openLightbox = (idx: number) => {

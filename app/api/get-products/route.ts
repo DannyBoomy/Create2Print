@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import axios from 'axios'
 
 const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
@@ -40,35 +39,16 @@ export async function GET(req: NextRequest) {
       catalogMap.set(`${item.blueprint_id}-${item.provider_id}`, item)
     }
 
-    // Fetch print areas for all products in parallel
-    const printAreaResults = await Promise.allSettled(
-      allowlist.map(row =>
-        axios.get(
-          `${PRINTIFY_API}/catalog/blueprints/${row.blueprint_id}/print_providers/${row.provider_id}/print_areas.json`,
-          { headers: { Authorization: `Bearer ${API_KEY}` } }
-        ).then(res => ({ key: `${row.blueprint_id}-${row.provider_id}`, data: res.data }))
-      )
-    )
-
-    // Build print area map keyed by blueprint-provider, then by variant ID
-    const printAreaMap = new Map<string, Map<number, any[]>>()
-    for (const result of printAreaResults) {
-      if (result.status === 'fulfilled') {
-        const { key, data } = result.value
-        const variantMap = new Map<number, any[]>()
-        for (const v of data?.variants || []) {
-          variantMap.set(v.id, v.placeholders || [])
-        }
-        printAreaMap.set(key, variantMap)
-      }
-    }
+    // Print areas are fetched on-demand when user selects a variant
+    // via /api/print-areas?blueprint=X&provider=Y — not fetched here
 
     const products = allowlist.map((row: any) => {
       const cat = catalogMap.get(`${row.blueprint_id}-${row.provider_id}`)
       if (!cat) return null
 
       const variants = cat.variants || []
-      const variantPlaceholders = printAreaMap.get(`${row.blueprint_id}-${row.provider_id}`)
+      // Print areas fetched on-demand — not available here
+      const variantPlaceholders = null
 
       // Group by color → finish → sizes
       const colorMap = new Map<string, Map<string, any[]>>()
@@ -84,12 +64,13 @@ export async function GET(req: NextRequest) {
       const colors = Array.from(colorMap.entries()).map(([colorLabel, finishMapInner]) => {
         const finishes = Array.from(finishMapInner.entries()).map(([finishLabel, finishVariants]) => {
           const sizes = finishVariants.map((v: any) => {
-            // Get real placeholder data from Printify API
-            const placeholders = variantPlaceholders?.get(v.id) || []
-            const frontPlaceholder = placeholders.find((p: any) => p.position === 'front') || placeholders[0] || null
+            // Print area fetched on-demand when user selects variant
+            // Stored in Supabase catalog from populate route
+            const storedPlaceholders = v.placeholders || []
+            const frontPlaceholder = storedPlaceholders.find((p: any) => p.position === 'front') || storedPlaceholders[0] || null
 
-            const pw = frontPlaceholder?.width || 3000
-            const ph = frontPlaceholder?.height || 3000
+            const pw = frontPlaceholder?.width || 0
+            const ph = frontPlaceholder?.height || 0
 
             const productionCents = v.cost || 0
             const shippingCents = row.shipping_cents || 0
@@ -100,14 +81,14 @@ export async function GET(req: NextRequest) {
 
             return {
               label: v.options?.size || v.title,
-              width: Math.round(pw / 100),
-              height: Math.round(ph / 100),
+              width: pw ? Math.round(pw / 100) : 10,
+              height: ph ? Math.round(ph / 100) : 10,
               variantId: v.id,
               price: retailCents || 2000,
-              printAreaWidth: pw,
-              printAreaHeight: ph,
-              printAreaPosition: frontPlaceholder?.position || 'front',
-              placeholderCount: placeholders.length,
+              printAreaWidth: pw || null,
+              printAreaHeight: ph || null,
+              printAreaPosition: frontPlaceholder?.position || null,
+              placeholderCount: storedPlaceholders.length,
             }
           })
           return { label: finishLabel, sizes }
@@ -119,8 +100,7 @@ export async function GET(req: NextRequest) {
       const allFinishes = Array.from(new Set(variants.map((v: any) =>
         v.options?.finish || v.options?.paper || v.options?.surface).filter(Boolean)))
       const hasFinishes = allFinishes.length > 1
-      const firstVariantId = variants[0]?.id
-      const firstPlaceholders = variantPlaceholders?.get(firstVariantId) || []
+      const firstPlaceholders = variants[0]?.placeholders || []
 
       return {
         id: `bp-${row.blueprint_id}-${row.provider_id}`,
@@ -241,7 +221,7 @@ function getProductContext(title: string): string {
   if (t.includes('canvas') && t.includes('frame')) return 'This design will be printed on a framed canvas. Gallery-quality artwork.'
   if (t.includes('canvas')) return 'This design will be printed on a stretched canvas.'
   if (t.includes('tapestry')) return 'This design will be printed on a wall tapestry. Full coverage designs with rich colors work best.'
-  if (t.includes('mug')) return 'This design will wrap around a ceramic mug. Consider panoramic wrap-around designs.'
+  if (t.includes('mug')) return 'This image will go on a mug'
   if (t.includes('tumbler')) return 'This design will wrap around a tumbler. A seamless wrap-around pattern works best.'
   if (t.includes('blanket') || t.includes('sherpa') || t.includes('fleece') || t.includes('woven') || t.includes('velveteen')) return 'This design will be printed on a blanket. Bold patterns at large scale work well.'
   if (t.includes('rug')) return 'This design will be printed on an area rug. Consider geometric patterns.'
