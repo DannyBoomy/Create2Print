@@ -672,12 +672,12 @@ export default function Home() {
 
     // Handle navigation from saved designs page
     const params = new URLSearchParams(window.location.search)
-    if (params.get('from_saved') === '1') {
+    if (params.get('from_saved') === '1' && PRODUCTS.length > 0) {
       try {
         const stored = sessionStorage.getItem('c2p_saved_order')
         if (stored) {
           const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt } = JSON.parse(stored)
-          const product = PRODUCTS.find(p => p.id === productId)
+          const product = PRODUCTS.find(p => p.id === productId || p.blueprintId === parseInt(productId))
           if (product) {
             setSelectedProduct(product)
             const colorLabel = color || product.colors[0]?.label || 'Default'
@@ -742,7 +742,7 @@ export default function Home() {
     }
 
     return () => window.removeEventListener('resize', check)
-  }, [])
+  }, [PRODUCTS])
 
   // When product changes, reset color/finish/size
   const handleProductSelect = (product: Product) => {
