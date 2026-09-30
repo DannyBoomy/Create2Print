@@ -1159,9 +1159,7 @@ export default function Home() {
         {step === 'product' && (
           <>
             <div className="pointer-events-none absolute left-0 top-0 h-[500px] w-[390px] opacity-90 overflow-hidden hidden sm:block">
-              <div className="absolute -left-24 top-14 h-28 w-[390px] -rotate-12 rounded-full bg-gradient-to-r from-[#6d3df3] via-[#c52fed] to-transparent blur-[1px]" />
-              <div className="absolute -left-32 top-32 h-24 w-[420px] -rotate-6 rounded-full bg-gradient-to-r from-[#ef48a7] via-[#ff5f92] to-transparent blur-[1px]" />
-              <div className="absolute -left-24 top-48 h-24 w-[390px] rotate-[-13deg] rounded-full bg-gradient-to-r from-[#ff8c18] via-[#ffb12c] to-transparent blur-[1px]" />
+
             </div>
 
             <section className="relative mx-auto max-w-[1540px] px-4 sm:px-8 pt-8 sm:pt-10 w-full">
