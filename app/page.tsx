@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { PRODUCTS, Product, SizeOption, ColorOption, FinishOption, formatPrice, getSizes, getFinishes } from '@/lib/products'
+import { useProducts, Product, SizeOption, ColorOption, FinishOption, formatPrice, getSizes, getFinishes } from '@/lib/use-products'
 import Link from 'next/link'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -459,6 +459,8 @@ function SaveDesignButton({ image, prompt, product, size, color, finish }: {
   image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string
 }) {
   const { data: session } = useSession()
+  const { products: PRODUCTS, loading: productsLoading } = useProducts()
+  const [activeCategory, setActiveCategory] = useState<string>('All')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -583,6 +585,8 @@ function StepBar({ step }: { step: Step }) {
 // ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
   const { data: session } = useSession()
+  const { products: PRODUCTS, loading: productsLoading } = useProducts()
+  const [activeCategory, setActiveCategory] = useState<string>('All')
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('Default')
@@ -988,6 +992,18 @@ export default function Home() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
+  const getMinPrice = (product: Product): number => {
+    let min = Infinity
+    for (const color of product.colors) {
+      for (const finish of color.finishes) {
+        for (const size of finish.sizes) {
+          if (size.price < min) min = size.price
+        }
+      }
+    }
+    return min === Infinity ? 0 : min
+  }
+
   const reset = () => {
     // Delete temp image from Supabase if exists
     if (tempImagePath) {
@@ -1130,23 +1146,69 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Category menu — desktop horizontal, mobile dropdown */}
+              {(() => {
+                const categories = ['All', ...Array.from(new Set(PRODUCTS.map(p => p.category).filter(Boolean)))]
+                return (
+                  <>
+                    {/* Desktop */}
+                    <div className="hidden sm:flex flex-wrap gap-2 mb-5">
+                      {categories.map(cat => (
+                        <button key={cat} onClick={() => setActiveCategory(cat)}
+                          className={`px-4 py-1.5 rounded-full text-sm font-bold border transition-all ${activeCategory === cat ? 'bg-gradient-to-r from-[#6526f5] to-[#ff8c18] text-white border-transparent' : 'border-[#e0e0ed] text-[#747aa2] hover:border-[#6d3df3] hover:text-[#6d3df3]'}`}>
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Mobile dropdown */}
+                    <div className="sm:hidden mb-4">
+                      <select
+                        value={activeCategory}
+                        onChange={e => setActiveCategory(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl border-2 border-[#e0e0ed] bg-white font-bold text-[#071633] text-sm focus:outline-none focus:border-[#6d3df3]">
+                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )
+              })()}
+
               {/* Product cards */}
+              {productsLoading ? (
+                <div className="col-span-full flex items-center justify-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 rounded-full border-4 border-[#6d3df3] border-t-transparent animate-spin" />
+                    <p className="text-[#747aa2] font-medium">Loading products...</p>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {PRODUCTS.map(product => (
+                {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id}>
                     <article onClick={() => handleProductSelect(product)}
                       className={`group relative overflow-hidden rounded-[16px] border bg-white p-2.5 shadow-[0_10px_28px_rgba(30,34,90,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] hover:shadow-[0_16px_38px_rgba(77,44,180,0.14)] cursor-pointer ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-white'}`}>
-                      <div className="overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
-                        {PRODUCT_IMAGES[product.id] && PRODUCT_IMAGES[product.id] !== '/product-placeholder.png' ? (
-                          <img
-                            src={PRODUCT_IMAGES[product.id]}
-                            alt={product.name}
-                            className="w-full h-full object-contain transition duration-500 group-hover:scale-[1.025]"
-                          />
+                      <div className="relative overflow-hidden rounded-[10px] bg-[#efedf3]" style={{ aspectRatio: '4/3' }}>
+                        {product.customImage ? (
+                          <>
+                            <img src={product.customImage} alt={product.name}
+                              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-150 group-hover:opacity-0" />
+                            {product.catalogImages?.[1] && (
+                              <img src={product.catalogImages[1]} alt={product.name}
+                                className="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                            )}
+                          </>
+                        ) : product.catalogImages?.[0] ? (
+                          <>
+                            <img src={product.catalogImages[0]} alt={product.name}
+                              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-150 group-hover:opacity-0" />
+                            {product.catalogImages?.[1] && (
+                              <img src={product.catalogImages[1]} alt={product.name}
+                                className="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                            )}
+                          </>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                             <span className="text-6xl">{product.emoji}</span>
-                            <span className="text-xs text-[#8a89a8] font-medium">Coming soon</span>
                           </div>
                         )}
                       </div>
