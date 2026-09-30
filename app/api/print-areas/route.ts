@@ -28,12 +28,23 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      // Fetch print areas (includes placeholder positions and dimensions per variant)
-      const res = await axios.get(
-        `${PRINTIFY_API}/catalog/blueprints/${blueprintParam}/print_providers/${providerId}/print_areas.json`,
-        { headers: { Authorization: `Bearer ${API_KEY}` } }
-      )
-      return NextResponse.json(res.data)
+      // Try print_areas.json first, fall back to variants.json
+      let data: any = null
+      try {
+        const res = await axios.get(
+          `${PRINTIFY_API}/catalog/blueprints/${blueprintParam}/print_providers/${providerId}/print_areas.json`,
+          { headers: { Authorization: `Bearer ${API_KEY}` } }
+        )
+        data = res.data
+      } catch {
+        // Some providers use variants.json instead
+        const res = await axios.get(
+          `${PRINTIFY_API}/catalog/blueprints/${blueprintParam}/print_providers/${providerId}/variants.json`,
+          { headers: { Authorization: `Bearer ${API_KEY}` } }
+        )
+        data = res.data
+      }
+      return NextResponse.json(data)
     }
 
     // All products mode — get everything in one shot
