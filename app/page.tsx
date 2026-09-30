@@ -459,8 +459,6 @@ function SaveDesignButton({ image, prompt, product, size, color, finish }: {
   image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string
 }) {
   const { data: session } = useSession()
-  const { products: PRODUCTS, loading: productsLoading } = useProducts()
-  const [activeCategory, setActiveCategory] = useState<string>('All')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -585,6 +583,8 @@ function StepBar({ step }: { step: Step }) {
 // ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
   const { data: session } = useSession()
+  const { products: PRODUCTS, loading: productsLoading } = useProducts()
+  const [activeCategory, setActiveCategory] = useState<string>('All')
 
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
