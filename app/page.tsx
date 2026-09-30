@@ -585,8 +585,7 @@ function StepBar({ step }: { step: Step }) {
 // ── Main App ──────────────────────────────────────────────────────────
 export default function Home() {
   const { data: session } = useSession()
-  const { products: PRODUCTS, loading: productsLoading } = useProducts()
-  const [activeCategory, setActiveCategory] = useState<string>('All')
+
   const [step, setStep] = useState<Step>('product')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('Default')
