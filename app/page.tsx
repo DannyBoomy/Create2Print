@@ -427,7 +427,7 @@ function ShareButton({ image, prompt, product, size }: {
     <div className="flex flex-col items-center gap-3">
       <div className="flex flex-wrap gap-3 justify-center">
         <button onClick={handleShare} disabled={sharing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] bg-[#111111] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
+          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
           {sharing ? (
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
           ) : (
@@ -526,7 +526,7 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
       <PaymentElement />
       {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl border border-red-100">{error}</div>}
       <button type="submit" disabled={!stripe || loading}
-        className="w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333] disabled:opacity-40 disabled:cursor-not-allowed">
+        className="w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.3)] transition hover:from-[#3b17a0] hover:to-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed">
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
@@ -569,7 +569,7 @@ function StepBar({ step }: { step: Step }) {
         return (
           <div key={id} className="relative flex min-w-[82px] flex-col items-center">
             {i < steps.length - 1 && <div className="absolute left-[54px] top-[16px] h-px w-[72px] bg-[#ddd9f7]" />}
-            <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${isDone || isActive ? 'bg-[#111111] text-white' : 'bg-[#e0e0e0] text-[#888888]'}`}>
+            <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${isDone || isActive ? 'bg-[#5f25f5] text-white shadow-[0_8px_24px_rgba(95,37,245,0.28)]' : 'bg-[#efeff8] text-[#8484a6]'}`}>
               {isDone ? '✓' : i + 1}
             </div>
             <span className={`mt-1.5 text-xs font-semibold ${isActive ? 'text-[#5f25f5]' : 'text-[#8a89a8]'}`}>{label}</span>
@@ -1074,7 +1074,7 @@ export default function Home() {
 
   const inputClass = "w-full border border-[#cccccc] rounded-[6px] px-4 py-3 text-[16px] text-[#111111] outline-none focus:border-[#111111] focus:ring-2 focus:ring-black/10 transition-all bg-white"
   const backBtn = "flex items-center gap-1 text-[#888888] text-sm hover:text-[#111111] transition-colors mb-6 font-semibold"
-  const primaryBtn = "w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333] disabled:opacity-40 disabled:cursor-not-allowed" 
+  const primaryBtn = "w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.3)] transition hover:from-[#3b17a0] hover:to-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed"
 
   // Get minimum price for product card display
   const getMinPrice = (product: Product): number => {
@@ -1090,7 +1090,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0f0f0] text-[#111111] overflow-x-hidden" style={{ fontFamily: "'Playfair Display', serif" }}>
+    <div className="min-h-screen bg-[#f0f0f0] text-[#111111] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
       {lightboxOpen && allPreviewUrls.length > 0 && (
         <Lightbox urls={allPreviewUrls} startIdx={lightboxStartIdx} onClose={() => setLightboxOpen(false)} />
@@ -1124,7 +1124,7 @@ export default function Home() {
               </svg>
               <span className="hidden sm:inline">Cart</span>
               {cartItemCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#6d3df3] text-white text-[10px] font-bold flex items-center justify-center">
                   {cartItemCount}
                 </span>
               )}
@@ -1246,7 +1246,7 @@ export default function Home() {
                         )}
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
-                        <h3 className="text-[17px] font-bold text-[#111111]" style={{ fontFamily: "'Playfair Display', serif" }}>{product.name}</h3>
+                        <h3 className="text-[17px] font-extrabold tracking-[-0.02em] text-[#111111]">{product.name}</h3>
                         <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#4a5070] overflow-hidden line-clamp-2">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
@@ -1326,8 +1326,8 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() => setStep('create')}
-                                className="mt-3 w-full rounded-[6px] bg-[#111111] px-6 py-4 text-[15px] font-bold text-white transition hover:bg-[#333333]">
-                                Continue — Design Your Art →
+                                className="mt-3 w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.25)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
+                                ✦ Continue — Design Your Art →
                               </button>
                             )}
                           </div>
@@ -1813,7 +1813,7 @@ export default function Home() {
               <button
                 onClick={addToCart}
                 disabled={loadingMockup || modifying}
-                className="w-full rounded-[6px] border border-[#111111] text-[#111111] bg-white px-8 py-[17px] text-[17px] font-bold transition hover:bg-[#111111] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                className="w-full rounded-[6px] border border-[#6d3df3] text-[#6d3df3] bg-white px-8 py-[17px] text-[17px] font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
                 🛒 Add to Cart
               </button>
               <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-1 hover:text-[#6d3df3] transition-colors py-2">
@@ -2024,7 +2024,7 @@ export default function Home() {
                   <p className="text-xs text-[#8a89a8]">Shipping calculated at checkout</p>
                   <button
                     onClick={() => { setCartOpen(false); setStep('shipping') }}
-                    className="w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333]">
+                    className="w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.3)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
                     Checkout →
                   </button>
                 </div>
