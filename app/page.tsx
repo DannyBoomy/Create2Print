@@ -622,6 +622,7 @@ export default function Home() {
   const [quantity, setQuantity] = useState(1)
   const [quantityInput, setQuantityInput] = useState('1')
   const [loadingPrintArea, setLoadingPrintArea] = useState(false)
+  const printAreaCache = useRef<Map<string, { width: number; height: number; position: string }>>(new Map())
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -868,24 +869,31 @@ export default function Home() {
     if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
-      // Get print area dimensions — fetch from API if not yet loaded
+      // Get print area dimensions from state, cache, or API
       let pw = selectedSize.printAreaWidth
       let ph = selectedSize.printAreaHeight
-      let pos = selectedSize.printAreaPosition
+      let pos = selectedSize.printAreaPosition || 'front'
 
       if (!pw || !ph) {
-        try {
-          const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct!.printifyBlueprintId}&provider=${selectedProduct!.printifyPrintProviderId}`)
-          const paData = await paRes.json()
-          const variants = paData?.variants || []
-          const variant = variants.find((v: any) => v.id === selectedSize.variantId)
-          if (variant?.placeholders?.[0]) {
-            pw = variant.placeholders[0].width
-            ph = variant.placeholders[0].height
-            pos = variant.placeholders[0].position
-            setSelectedSize(prev => prev ? { ...prev, printAreaWidth: pw!, printAreaHeight: ph!, printAreaPosition: pos! } : prev)
-          }
-        } catch {}
+        const cacheKey = `${selectedProduct!.printifyBlueprintId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
+        const cached = printAreaCache.current.get(cacheKey)
+        if (cached) {
+          pw = cached.width
+          ph = cached.height
+          pos = cached.position
+        } else {
+          try {
+            const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct!.printifyBlueprintId}&provider=${selectedProduct!.printifyPrintProviderId}`)
+            const paData = await paRes.json()
+            const variants = paData?.variants || []
+            const variant = variants.find((v: any) => v.id === selectedSize.variantId)
+            if (variant?.placeholders?.[0]) {
+              pw = variant.placeholders[0].width
+              ph = variant.placeholders[0].height
+              pos = variant.placeholders[0].position
+            }
+          } catch {}
+        }
       }
 
       const res = await fetch('/api/generate', {
@@ -961,30 +969,38 @@ export default function Home() {
     setQuantity(1)
     setQuantityInput('1')
 
-    // Fetch exact print area dimensions from Printify for this specific variant
-    if (selectedProduct) {
-      setLoadingPrintArea(true)
-      try {
-        const res = await fetch(
-          `/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`
-        )
-        const data = await res.json()
-        const variants = data?.variants || []
-        const variant = variants.find((v: any) => v.id === size.variantId)
-        if (variant?.placeholders?.[0]) {
-          const p = variant.placeholders[0]
-          setSelectedSize(prev => prev ? {
-            ...prev,
-            printAreaWidth: p.width,
-            printAreaHeight: p.height,
-            printAreaPosition: p.position,
-          } : prev)
+    if (!selectedProduct) return
+
+    const cacheKey = `${selectedProduct.printifyBlueprintId}-${selectedProduct.printifyPrintProviderId}`
+
+    // Check cache first
+    const cached = printAreaCache.current.get(`${cacheKey}-${size.variantId}`)
+    if (cached) {
+      setSelectedSize({ ...size, printAreaWidth: cached.width, printAreaHeight: cached.height, printAreaPosition: cached.position })
+      return
+    }
+
+    // Fetch from Printify
+    try {
+      const res = await fetch(`/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`)
+      const data = await res.json()
+      const variants = data?.variants || []
+
+      // Cache all variants from this product
+      for (const v of variants) {
+        const p = v.placeholders?.[0]
+        if (p) {
+          printAreaCache.current.set(`${cacheKey}-${v.id}`, { width: p.width, height: p.height, position: p.position })
         }
-      } catch (e) {
-        console.error('Failed to fetch print areas:', e)
-      } finally {
-        setLoadingPrintArea(false)
       }
+
+      // Apply to current size
+      const variantData = printAreaCache.current.get(`${cacheKey}-${size.variantId}`)
+      if (variantData) {
+        setSelectedSize({ ...size, printAreaWidth: variantData.width, printAreaHeight: variantData.height, printAreaPosition: variantData.position })
+      }
+    } catch (e) {
+      console.error('Failed to fetch print areas:', e)
     }
   }
 
