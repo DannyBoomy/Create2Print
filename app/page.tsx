@@ -427,7 +427,7 @@ function ShareButton({ image, prompt, product, size }: {
     <div className="flex flex-col items-center gap-3">
       <div className="flex flex-wrap gap-3 justify-center">
         <button onClick={handleShare} disabled={sharing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shadow-[0_8px_20px_rgba(239,72,167,0.3)]">
+          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] bg-[#111111] text-white font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
           {sharing ? (
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
           ) : (
@@ -438,7 +438,7 @@ function ShareButton({ image, prompt, product, size }: {
           {sharing ? 'Creating link...' : 'Share'}
         </button>
         <button onClick={handleCopyLink} disabled={sharing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f0ecff] text-[#6d3df3] font-bold text-sm hover:bg-[#e4dcff] transition-all active:scale-95 disabled:opacity-50">
+          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] border border-[#cccccc] bg-white text-[#111111] font-bold text-sm hover:bg-[#f5f5f5] transition-all active:scale-95 disabled:opacity-50">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
@@ -526,7 +526,7 @@ function CheckoutForm({ onSuccess, amount }: { onSuccess: () => void; amount: nu
       <PaymentElement />
       {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl border border-red-100">{error}</div>}
       <button type="submit" disabled={!stripe || loading}
-        className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none">
+        className="w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333] disabled:opacity-40 disabled:cursor-not-allowed">
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
@@ -569,7 +569,7 @@ function StepBar({ step }: { step: Step }) {
         return (
           <div key={id} className="relative flex min-w-[82px] flex-col items-center">
             {i < steps.length - 1 && <div className="absolute left-[54px] top-[16px] h-px w-[72px] bg-[#ddd9f7]" />}
-            <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${isDone || isActive ? 'bg-[#5f25f5] text-white shadow-[0_8px_24px_rgba(95,37,245,0.28)]' : 'bg-[#efeff8] text-[#8484a6]'}`}>
+            <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${isDone || isActive ? 'bg-[#111111] text-white' : 'bg-[#e0e0e0] text-[#888888]'}`}>
               {isDone ? '✓' : i + 1}
             </div>
             <span className={`mt-1.5 text-xs font-semibold ${isActive ? 'text-[#5f25f5]' : 'text-[#8a89a8]'}`}>{label}</span>
@@ -1072,9 +1072,9 @@ export default function Home() {
     setPromptSuggestions(getRandomPrompts())
   }
 
-  const inputClass = "w-full border border-[#e0e0ed] rounded-2xl px-4 py-3 text-[16px] text-[#071633] outline-none focus:border-[#6d3df3] focus:ring-2 focus:ring-[#6d3df3]/10 transition-all bg-white shadow-[0_8px_22px_rgba(16,24,40,0.035)]"
-  const backBtn = "flex items-center gap-1 text-[#8a89a8] text-sm hover:text-[#6d3df3] transition-colors mb-6 font-semibold"
-  const primaryBtn = "w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(239,72,167,0.30)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+  const inputClass = "w-full border border-[#cccccc] rounded-[6px] px-4 py-3 text-[16px] text-[#111111] outline-none focus:border-[#111111] focus:ring-2 focus:ring-black/10 transition-all bg-white"
+  const backBtn = "flex items-center gap-1 text-[#888888] text-sm hover:text-[#111111] transition-colors mb-6 font-semibold"
+  const primaryBtn = "w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333] disabled:opacity-40 disabled:cursor-not-allowed" 
 
   // Get minimum price for product card display
   const getMinPrice = (product: Product): number => {
@@ -1090,7 +1090,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f8fc] text-[#071633] overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f0f0f0] text-[#111111] overflow-x-hidden" style={{ fontFamily: "'Playfair Display', serif" }}>
 
       {lightboxOpen && allPreviewUrls.length > 0 && (
         <Lightbox urls={allPreviewUrls} startIdx={lightboxStartIdx} onClose={() => setLightboxOpen(false)} />
@@ -1107,7 +1107,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             {session && (
-              <Link href="/saved" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#e0e0ed] bg-white text-xs font-bold text-[#071633] hover:border-[#6d3df3] hover:text-[#6d3df3] transition-all shadow-sm">
+              <Link href="/saved" className="flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-[#cccccc] bg-white text-xs font-bold text-[#111111] hover:border-[#111111] transition-all">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                 </svg>
@@ -1117,14 +1117,14 @@ export default function Home() {
             {/* Cart button */}
             <button
               onClick={() => setCartOpen(true)}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#e0e0ed] bg-white text-xs font-bold text-[#071633] hover:border-[#6d3df3] hover:text-[#6d3df3] transition-all shadow-sm">
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-[#cccccc] bg-white text-xs font-bold text-[#111111] hover:border-[#111111] transition-all">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
               </svg>
               <span className="hidden sm:inline">Cart</span>
               {cartItemCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-r from-[#6526f5] to-[#ff8c18] text-white text-[10px] font-extrabold flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center">
                   {cartItemCount}
                 </span>
               )}
@@ -1188,7 +1188,7 @@ export default function Home() {
                     <div className="hidden sm:flex flex-wrap gap-2 mb-5">
                       {categories.map(cat => (
                         <button key={cat} onClick={() => setActiveCategory(cat)}
-                          className={`px-4 py-1.5 rounded-full text-sm font-bold border transition-all ${activeCategory === cat ? 'bg-gradient-to-r from-[#6526f5] to-[#ff8c18] text-white border-transparent' : 'border-[#e0e0ed] text-[#747aa2] hover:border-[#6d3df3] hover:text-[#6d3df3]'}`}>
+                          className={`px-4 py-1.5 rounded-[4px] text-sm font-bold border transition-all ${activeCategory === cat ? 'bg-[#111111] text-white border-[#111111]' : 'border-[#cccccc] text-[#555555] hover:border-[#111111] hover:text-[#111111]'}`}>
                           {cat}
                         </button>
                       ))}
@@ -1198,7 +1198,7 @@ export default function Home() {
                       <select
                         value={activeCategory}
                         onChange={e => setActiveCategory(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl border-2 border-[#e0e0ed] bg-white font-bold text-[#071633] text-sm focus:outline-none focus:border-[#6d3df3]">
+                        className="w-full px-4 py-3 rounded-[4px] border border-[#cccccc] bg-white font-bold text-[#111111] text-sm focus:outline-none focus:border-[#111111]">
                         {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
@@ -1246,12 +1246,12 @@ export default function Home() {
                         )}
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
-                        <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
+                        <h3 className="text-[17px] font-bold text-[#111111]" style={{ fontFamily: "'Playfair Display', serif" }}>{product.name}</h3>
                         <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#4a5070] overflow-hidden line-clamp-2">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
                             <div className="text-[11px] text-[#747aa2]">from</div>
-                            <span className="text-[17px] font-extrabold text-[#5924f5]">{formatPrice(getMinPrice(product))}</span>
+                            <span className="text-[17px] font-bold text-[#111111]">{formatPrice(getMinPrice(product))}</span>
                           </div>
                           <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
                         </div>
@@ -1326,8 +1326,8 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() => setStep('create')}
-                                className="mt-3 w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5">
-                                ✦ Continue — Design Your Art →
+                                className="mt-3 w-full rounded-[6px] bg-[#111111] px-6 py-4 text-[15px] font-bold text-white transition hover:bg-[#333333]">
+                                Continue — Design Your Art →
                               </button>
                             )}
                           </div>
@@ -1781,7 +1781,7 @@ export default function Home() {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => { const q = Math.max(1, quantity - 1); setQuantity(q); setQuantityInput(String(q)) }}
-                      className="w-9 h-9 rounded-full border-2 border-[#ddd9f7] bg-white text-[#6d3df3] font-extrabold text-lg flex items-center justify-center hover:border-[#6d3df3] transition-all active:scale-95">−</button>
+                      className="w-9 h-9 rounded-[4px] border border-[#cccccc] bg-white text-[#111111] font-bold text-lg flex items-center justify-center hover:border-[#111111] transition-all active:scale-95">−</button>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -1800,11 +1800,11 @@ export default function Home() {
                           e.currentTarget.blur()
                         }
                       }}
-                      className="w-12 text-center font-extrabold text-[#071633] text-lg border-2 border-[#ddd9f7] rounded-xl py-1 outline-none focus:border-[#6d3df3] transition-all"
+                      className="w-12 text-center font-bold text-[#111111] text-lg border border-[#cccccc] rounded-[4px] py-1 outline-none focus:border-[#111111] transition-all"
                     />
                     <button
                       onClick={() => { const q = quantity + 1; setQuantity(q); setQuantityInput(String(q)) }}
-                      className="w-9 h-9 rounded-full border-2 border-[#ddd9f7] bg-white text-[#6d3df3] font-extrabold text-lg flex items-center justify-center hover:border-[#6d3df3] transition-all active:scale-95">+</button>
+                      className="w-9 h-9 rounded-[4px] border border-[#cccccc] bg-white text-[#111111] font-bold text-lg flex items-center justify-center hover:border-[#111111] transition-all active:scale-95">+</button>
                   </div>
 
                 </div>
@@ -1813,7 +1813,7 @@ export default function Home() {
               <button
                 onClick={addToCart}
                 disabled={loadingMockup || modifying}
-                className="w-full rounded-full border-2 border-[#6d3df3] text-[#6d3df3] bg-white px-8 py-[17px] text-[17px] font-extrabold transition hover:bg-[#6d3df3] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                className="w-full rounded-[6px] border border-[#111111] text-[#111111] bg-white px-8 py-[17px] text-[17px] font-bold transition hover:bg-[#111111] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">
                 🛒 Add to Cart
               </button>
               <button onClick={() => setStep('create')} className="w-full text-center text-[#8a89a8] text-sm mt-1 hover:text-[#6d3df3] transition-colors py-2">
@@ -2024,8 +2024,8 @@ export default function Home() {
                   <p className="text-xs text-[#8a89a8]">Shipping calculated at checkout</p>
                   <button
                     onClick={() => { setCartOpen(false); setStep('shipping') }}
-                    className="w-full rounded-full bg-gradient-to-r from-[#6526f5] via-[#ef48a7] to-[#ff8c18] px-8 py-[18px] text-[17px] font-extrabold text-white shadow-[0_16px_40px_rgba(239,72,167,0.23)] transition hover:-translate-y-0.5">
-                    ✦ Checkout →
+                    className="w-full rounded-[6px] bg-[#111111] px-8 py-[18px] text-[17px] font-bold text-white transition hover:bg-[#333333]">
+                    Checkout →
                   </button>
                 </div>
               </>
