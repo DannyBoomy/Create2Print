@@ -621,6 +621,7 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [quantityInput, setQuantityInput] = useState('1')
+  const [loadingPrintArea, setLoadingPrintArea] = useState(false)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -867,9 +868,29 @@ export default function Home() {
     if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
+      // Get print area dimensions — fetch from API if not yet loaded
+      let pw = selectedSize.printAreaWidth
+      let ph = selectedSize.printAreaHeight
+      let pos = selectedSize.printAreaPosition
+
+      if (!pw || !ph) {
+        try {
+          const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`)
+          const paData = await paRes.json()
+          const variants = paData?.variants || []
+          const variant = variants.find((v: any) => v.id === selectedSize.variantId)
+          if (variant?.placeholders?.[0]) {
+            pw = variant.placeholders[0].width
+            ph = variant.placeholders[0].height
+            pos = variant.placeholders[0].position
+            setSelectedSize(prev => prev ? { ...prev, printAreaWidth: pw!, printAreaHeight: ph!, printAreaPosition: pos! } : prev)
+          }
+        } catch {}
+      }
+
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight, transparentBg, productContext: selectedProduct?.productContext || '' })
+        body: JSON.stringify({ prompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {
@@ -896,7 +917,7 @@ export default function Home() {
       const combinedPrompt = `${prompt}. Modification: ${modifyPrompt}`
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.printAreaWidth, height: selectedSize.printAreaHeight })
+        body: JSON.stringify({ prompt: combinedPrompt, width: selectedSize.printAreaWidth || 3000, height: selectedSize.printAreaHeight || 3000 })
       })
       const data = await res.json()
       if (!res.ok) {
@@ -941,7 +962,8 @@ export default function Home() {
     setQuantityInput('1')
 
     // Fetch exact print area dimensions from Printify for this specific variant
-    if (selectedProduct && (!size.printAreaWidth || !size.printAreaHeight)) {
+    if (selectedProduct) {
+      setLoadingPrintArea(true)
       try {
         const res = await fetch(
           `/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`
@@ -951,14 +973,18 @@ export default function Home() {
         const variant = variants.find((v: any) => v.id === size.variantId)
         if (variant?.placeholders?.[0]) {
           const p = variant.placeholders[0]
-          setSelectedSize({
-            ...size,
+          setSelectedSize(prev => prev ? {
+            ...prev,
             printAreaWidth: p.width,
             printAreaHeight: p.height,
             printAreaPosition: p.position,
-          })
+          } : prev)
         }
-      } catch {}
+      } catch (e) {
+        console.error('Failed to fetch print areas:', e)
+      } finally {
+        setLoadingPrintArea(false)
+      }
     }
   }
 
