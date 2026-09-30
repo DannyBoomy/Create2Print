@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
         blueprintId: row.blueprint_id,
         providerId: row.provider_id,
         name: cat.title,
-        description: cat.description || '',
+        description: shortDescription(cat.title, cat.description || ''),
         emoji: getProductEmoji(cat.title),
         category: row.category,
         printifyBlueprintId: row.blueprint_id,
@@ -104,6 +104,57 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ error: err?.message }, { status: 500 })
   }
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function shortDescription(title: string, rawDescription: string): string {
+  const t = title.toLowerCase()
+  if (t.includes('poster') && t.includes('vertical')) return 'Premium matte vertical poster. Vibrant colors, sharp detail, perfect for any wall.'
+  if (t.includes('poster')) return 'Premium poster print, rolled and shipped in a protective tube. Sharp detail and vivid color.'
+  if (t.includes('canvas') && t.includes('frame')) return 'Gallery-quality canvas in a solid wood frame. Arrives ready to hang.'
+  if (t.includes('canvas')) return 'Gallery-quality canvas wrap with vivid color reproduction. Ready to hang straight out of the box.'
+  if (t.includes('tapestry')) return 'Soft woven tapestry with vibrant all-over print. Perfect for any room.'
+  if (t.includes('black mug') || (t.includes('mug') && t.includes('black'))) return 'Classic black ceramic mug with a bold color interior. Dishwasher safe, 11oz or 15oz.'
+  if (t.includes('accent') && t.includes('mug')) return 'Ceramic mug with a colored accent handle and interior. Dishwasher safe, 11oz or 15oz.'
+  if (t.includes('mug')) return 'Classic ceramic mug. Dishwasher safe, available in 11oz and 15oz.'
+  if (t.includes('tumbler')) return 'Insulated 20oz tumbler. Keeps drinks hot or cold for hours.'
+  if (t.includes('woven blanket')) return 'Premium woven blanket with photo-quality print. Soft, warm, and built to last.'
+  if (t.includes('sherpa') || t.includes('fleece')) return 'Ultra-cozy sherpa fleece blanket. Soft on both sides with vibrant print.'
+  if (t.includes('arctic')) return 'Warm arctic fleece blanket with vivid all-over print. Perfect for cold nights.'
+  if (t.includes('velveteen') || t.includes('plush')) return 'Super soft velveteen plush blanket. Perfect gift for anyone.'
+  if (t.includes('rug')) return 'Custom printed area rug. Soft, durable, and machine washable.'
+  if (t.includes('curtain')) return 'Custom printed shower curtain. Water-resistant with vibrant full-coverage print.'
+  if (t.includes('puzzle')) return 'Custom jigsaw puzzle. Choose your piece count for more or less challenge.'
+  if (t.includes('coaster')) return 'Custom ceramic coaster with cork backing. Protects your surfaces in style.'
+  if (t.includes('mat') || t.includes('desk')) return 'Premium stitched edge desk mat. Elevate your workspace with a custom design.'
+  if (t.includes('magnet')) return 'Weather-resistant car magnet. Easy to apply and remove, holds firm at highway speeds.'
+  if (t.includes('tote') && t.includes('aop')) return 'All-over print tote bag with full coverage design. Durable and spacious.'
+  if (t.includes('tote') || t.includes('canvas bag')) return 'Sturdy cotton canvas tote bag. Great for everyday use.'
+  if (t.includes('cutting board')) return 'Tempered glass cutting board with full-color print. Functional and decorative.'
+  if (t.includes('can cooler')) return 'Custom printed can cooler. Keeps your drink cold and your hands dry.'
+  if (t.includes('tough case')) return 'Dual-layer protective phone case. Hard shell with soft TPU lining, glossy finish.'
+  if (t.includes('magnetic') && t.includes('case')) return 'MagSafe-compatible impact-resistant phone case. Available in glossy or matte finish.'
+  if (t.includes('dad cap')) return 'Classic unstructured dad cap with adjustable strap. One size fits all.'
+  if (t.includes('trucker') || t.includes('snapback')) return 'Snapback trucker cap with mesh back. One size fits all.'
+  if (t.includes('hoodie') || t.includes('sweatshirt') && t.includes('hood')) return 'Classic pullover hoodie with kangaroo pocket. Warm, comfortable, true to size.'
+  if (t.includes('crewneck') || t.includes('sweatshirt')) return 'Classic crewneck sweatshirt. Heavyweight fleece, warm and comfortable.'
+  if (t.includes('long sleeve')) return 'Classic long sleeve tee. Soft cotton, comfortable fit.'
+  if (t.includes('shirt') || t.includes('tee')) return 'Classic unisex t-shirt. Soft cotton with a comfortable relaxed fit.'
+  if (t.includes('wrap') || t.includes('gift')) return 'Custom printed gift wrapping paper. Available in matte and satin finish.'
+  // Fallback: strip HTML and take first sentence
+  const clean = stripHtml(rawDescription)
+  const firstSentence = clean.split(/[.!?]/)[0]
+  return firstSentence.length > 10 ? firstSentence.trim() + '.' : clean.slice(0, 120).trim()
 }
 
 function getColorHex(color: string): string {
