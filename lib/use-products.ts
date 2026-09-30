@@ -12,6 +12,7 @@ export interface SizeOption {
   price: number
   printAreaWidth: number
   printAreaHeight: number
+  printAreaPosition: string
   placeholderCount: number
 }
 

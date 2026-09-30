@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
               price: retailCents || 2000,
               printAreaWidth: pw,
               printAreaHeight: ph,
+              printAreaPosition: frontPlaceholder?.position || 'front',
               placeholderCount: placeholders.length,
             }
           })

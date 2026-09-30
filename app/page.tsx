@@ -697,6 +697,7 @@ export default function Home() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   imageUrl,
+                  printAreaPosition: sizeObj?.printAreaPosition || 'front',
                   blueprintId: product.printifyBlueprintId,
                   printProviderId: product.printifyPrintProviderId,
                   variantId: sizeObj.variantId,
@@ -813,7 +814,8 @@ export default function Home() {
           blueprintId: selectedProduct.printifyBlueprintId,
           printProviderId: selectedProduct.printifyPrintProviderId,
           variantId: variantId || selectedSize.variantId,
-          tempPath: tempPath || tempImagePath || null
+          tempPath: tempPath || tempImagePath || null,
+          printAreaPosition: selectedSize.printAreaPosition || 'front'
         })
       })
       const data = await res.json()
@@ -1201,7 +1203,7 @@ export default function Home() {
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em]">{product.name}</h3>
-                        <p className="mt-0.5 min-h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2]">{product.description}</p>
+                        <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#747aa2] overflow-hidden line-clamp-2">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
                             <div className="text-[11px] text-[#747aa2]">from</div>
