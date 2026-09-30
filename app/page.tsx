@@ -992,18 +992,6 @@ export default function Home() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
-  const getMinPrice = (product: Product): number => {
-    let min = Infinity
-    for (const color of product.colors) {
-      for (const finish of color.finishes) {
-        for (const size of finish.sizes) {
-          if (size.price < min) min = size.price
-        }
-      }
-    }
-    return min === Infinity ? 0 : min
-  }
-
   const reset = () => {
     // Delete temp image from Supabase if exists
     if (tempImagePath) {
