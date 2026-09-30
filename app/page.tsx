@@ -875,7 +875,7 @@ export default function Home() {
 
       if (!pw || !ph) {
         try {
-          const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`)
+          const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct!.printifyBlueprintId}&provider=${selectedProduct!.printifyPrintProviderId}`)
           const paData = await paRes.json()
           const variants = paData?.variants || []
           const variant = variants.find((v: any) => v.id === selectedSize.variantId)
