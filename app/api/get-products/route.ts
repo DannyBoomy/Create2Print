@@ -229,7 +229,7 @@ function getProductContext(title: string): string {
   if (t.includes('puzzle')) return 'This design will be printed on a jigsaw puzzle. Detailed and colorful designs work best.'
   if (t.includes('tote') || t.includes('bag')) return 'This design will be printed on a tote bag. Bold, simple designs work best.'
   if (t.includes('case')) return 'This design will be printed on a phone case. Portrait orientation designs work best.'
-  if (t.includes('cap') || t.includes('hat')) return 'This design will be printed on a cap. Simple, bold designs work best.'
+  if (t.includes('cap') || t.includes('hat')) return 'This design will be printed on a cap.'
   if (t.includes('hoodie') || t.includes('sweatshirt')) return 'This design will be printed on a sweatshirt. Consider designs for the front chest area.'
   if (t.includes('shirt') || t.includes('tee')) return 'This design will be printed on a t-shirt. Bold graphics work best.'
   if (t.includes('magnet')) return 'This design will be printed on a car magnet. Clean logos with transparent backgrounds work best.'
