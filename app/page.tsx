@@ -870,10 +870,12 @@ export default function Home() {
     setLoadingShipping(false)
   }
 
-  const generateMockup = async (imageUrl: string, variantId?: number, tempPath?: string) => {
+  const generateMockup = async (imageUrl: string, variantId?: number, tempPath?: string, multiAreaImages?: Record<string, string>) => {
     if (!selectedProduct || !selectedSize) return
     setLoadingMockup(true)
     try {
+      // Use directly passed multiAreaImages (avoids React state timing issue)
+      const areaImages = multiAreaImages || (Object.keys(printAreaImages).length > 1 ? printAreaImages : undefined)
       const res = await fetch('/api/mockup', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -883,7 +885,7 @@ export default function Home() {
           variantId: variantId || selectedSize.variantId,
           tempPath: tempPath || tempImagePath || null,
           printAreaPosition: selectedSize.printAreaPosition || 'front',
-          printAreaImages: Object.keys(printAreaImages).length > 1 ? printAreaImages : undefined,
+          printAreaImages: areaImages,
         })
       })
       const data = await res.json()
@@ -962,26 +964,66 @@ export default function Home() {
         console.error('Failed to fetch print areas:', e)
       }
 
-      console.log('GENERATE dimensions:', { pw, ph, pos, variantId: selectedSize.variantId })
+      console.log('GENERATE dimensions:', { pw, ph, pos, variantId: selectedSize.variantId, isMultiArea })
 
-      const res = await fetch('/api/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: activePromptText, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        if (res.status === 429) setGenerationsLeft(0)
-        throw new Error(data.error)
+      let mainImageUrl: string = ''
+      let mainTempPath: string | null = null
+      let collectedPrintAreaImages: Record<string, string> = {}
+
+      if (isMultiArea) {
+        // Generate one image per area in parallel
+        const areaEntries = printAreas.filter(area => printAreaPrompts[area.position]?.trim())
+        const results = await Promise.all(areaEntries.map(async (area) => {
+          const res = await fetch('/api/generate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: printAreaPrompts[area.position].trim(),
+              width: area.width || pw || 3000,
+              height: area.height || ph || 3000,
+              transparentBg,
+              productContext: ''
+            })
+          })
+          const data = await res.json()
+          return { position: area.position, imageUrl: data.mockupImageUrl || data.imageUrl, tempPath: data.tempPath, error: data.error }
+        }))
+
+        const failed = results.find(r => r.error || !r.imageUrl)
+        if (failed) throw new Error(failed.error || 'Generation failed for one area')
+
+        for (const r of results) {
+          if (r.imageUrl) collectedPrintAreaImages[r.position] = r.imageUrl
+        }
+        setPrintAreaImages(collectedPrintAreaImages)
+
+        // Use front as the main display image
+        const frontResult = results.find(r => r.position === 'front') || results[0]
+        mainImageUrl = frontResult.imageUrl
+        mainTempPath = frontResult.tempPath || null
+      } else {
+        // Single area
+        const res = await fetch('/api/generate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: activePromptText, width: pw || 3000, height: ph || 3000, transparentBg, productContext: '' })
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          if (res.status === 429) setGenerationsLeft(0)
+          throw new Error(data.error)
+        }
+        mainImageUrl = data.mockupImageUrl || data.imageUrl
+        mainTempPath = data.tempPath || null
+        setPrintAreaImages({})
       }
-      setGeneratedImage(data.imageUrl)
-      if (data.tempPath) setTempImagePath(data.tempPath)
+
+      setGeneratedImage(mainImageUrl)
+      if (mainTempPath) setTempImagePath(mainTempPath)
       if (session?.user?.email !== 'dborsykowsky@gmail.com') {
         saveGenerationUsed()
         setGenerationsLeft(loadGenerationsLeft())
       }
       setStep('preview')
-      // Use mockupImageUrl (Supabase URL) for mockup API, imageUrl (base64) for display
-      await generateMockup(data.mockupImageUrl || data.imageUrl, undefined, data.tempPath)
+      await generateMockup(mainImageUrl, undefined, mainTempPath || undefined, Object.keys(collectedPrintAreaImages).length > 1 ? collectedPrintAreaImages : undefined)
     } catch (e: any) { setError(e.message) }
     finally { setGenerating(false) }
   }
