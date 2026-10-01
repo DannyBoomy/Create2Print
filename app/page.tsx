@@ -2199,7 +2199,7 @@ export default function Home() {
             <span className="hidden sm:inline">Art for a brighter world.</span>
           </div>
           <div className="flex gap-5">
-            <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contact</a>
+            <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contt</a>
             <span>© 2025 Create2Print</span>
           </div>
         </div>
