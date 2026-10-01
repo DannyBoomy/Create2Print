@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         .filter(u => u.imageId)
         .map(u => ({
           position: u.position,
-          images: [{ id: u.imageId, x: 0.5, y: 0.5, scale, angle: 0 }]
+          images: [{ id: u.imageId, x: 0.5, y: u.position.includes('sleeve') ? 0.15 : 0.5, scale, angle: 0 }]
         }))
 
       console.log('Placeholders built:', placeholders.map(p => p.position))
