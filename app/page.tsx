@@ -882,7 +882,8 @@ export default function Home() {
           printProviderId: selectedProduct.printifyPrintProviderId,
           variantId: variantId || selectedSize.variantId,
           tempPath: tempPath || tempImagePath || null,
-          printAreaPosition: selectedSize.printAreaPosition || 'front'
+          printAreaPosition: selectedSize.printAreaPosition || 'front',
+          printAreaImages: Object.keys(printAreaImages).length > 1 ? printAreaImages : undefined,
         })
       })
       const data = await res.json()
