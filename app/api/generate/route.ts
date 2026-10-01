@@ -105,9 +105,13 @@ export async function POST(req: NextRequest) {
 
     // Get optimal dimensions for this print area
     const { width: aiWidth, height: aiHeight } = getOptimalOpenAISize(Number(width), Number(height))
-    const contextPrefix = productContext ? `${productContext} ` : ''
-    const transparentSuffix = transparentBg ? ', transparent background, PNG with alpha channel, no background, isolated subject' : ', full scene, zoomed out, complete composition, nothing cut off at edges'
-    const cleanPrompt = contextPrefix + sanitizePrompt(prompt) + transparentSuffix
+    // Never include product context in the prompt — it causes AI to generate product mockups
+    // Instead just instruct it to generate flat print-ready artwork
+    const artworkPrefix = 'Flat print-ready artwork design, no product mockups, no clothing, no items, just the graphic design itself. '
+    const transparentSuffix = transparentBg
+      ? ' Transparent background, PNG with alpha channel, no background, isolated subject only.'
+      : ' Full composition, nothing cut off at edges, complete design filling the frame.'
+    const cleanPrompt = artworkPrefix + sanitizePrompt(prompt) + transparentSuffix
 
     let b64: string | undefined
     let imageUrl: string | undefined
