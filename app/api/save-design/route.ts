@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { imageUrl, imageBase64, prompt, productId, productName, sizeLabel, color, finish, variantId, price, printAreaImages } = await req.json()
+    console.log('SAVE ROUTE - printAreaImages keys:', printAreaImages ? Object.keys(printAreaImages) : null)
 
     const id = Math.random().toString(36).slice(2, 10)
     const fileName = `saved/${token.email}/${id}.png`
