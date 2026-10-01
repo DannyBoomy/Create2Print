@@ -455,8 +455,8 @@ function ShareButton({ image, prompt, product, size }: {
 }
 
 // ── Save Design Button ─────────────────────────────────────────────────
-function SaveDesignButton({ image, prompt, product, size, color, finish }: {
-  image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string
+function SaveDesignButton({ image, prompt, product, size, color, finish, printAreaImages }: {
+  image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string; printAreaImages?: Record<string, string>
 }) {
   const { data: session } = useSession()
   const [saving, setSaving] = useState(false)
@@ -481,6 +481,7 @@ function SaveDesignButton({ image, prompt, product, size, color, finish }: {
           finish: finish !== 'Standard' ? finish : null,
           variantId: size.variantId,
           price: size.price,
+          printAreaImages: printAreaImages && Object.keys(printAreaImages).length > 1 ? printAreaImages : null,
         })
       })
       const data = await res.json()
@@ -706,7 +707,7 @@ export default function Home() {
       try {
         const stored = sessionStorage.getItem('c2p_saved_order')
         if (stored) {
-          const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt } = JSON.parse(stored)
+          const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt, printAreaImages: savedPrintAreaImages } = JSON.parse(stored)
           const product = PRODUCTS.find(p => p.id === productId || p.blueprintId === parseInt(productId))
           if (product) {
             setSelectedProduct(product)
@@ -731,6 +732,7 @@ export default function Home() {
                   blueprintId: product.printifyBlueprintId,
                   printProviderId: product.printifyPrintProviderId,
                   variantId: sizeObj.variantId,
+                  printAreaImages: savedPrintAreaImages || null,
                 })
               }).then(r => r.json()).then(data => {
                 if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
@@ -1120,20 +1122,24 @@ export default function Home() {
         setSelectedSize({ ...size, printAreaWidth: frontPlaceholder.width, printAreaHeight: frontPlaceholder.height, printAreaPosition: frontPlaceholder.position })
       }
 
-      // Populate printAreasRef with this variant's exact placeholders
-      if (placeholders.length > 0) {
-        printAreasRef.current = placeholders.map((p: any) => ({
+      // Filter out neck — it's a tiny label position not meant for user designs
+      const EXCLUDED_POSITIONS = ['neck']
+      const filteredPlaceholders = placeholders.filter((p: any) => !EXCLUDED_POSITIONS.includes(p.position))
+
+      // Populate printAreasRef with filtered placeholders
+      if (filteredPlaceholders.length > 0) {
+        printAreasRef.current = filteredPlaceholders.map((p: any) => ({
           position: p.position,
           width: p.width,
           height: p.height,
         }))
 
         // Also update UI prompt boxes if multi-area
-        if (placeholders.length > 1) {
+        if (filteredPlaceholders.length > 1) {
           setPrintAreas(printAreasRef.current)
           setPrintAreaPrompts(prev => {
             const next: Record<string, string> = {}
-            for (const p of placeholders) next[p.position] = prev[p.position] || ''
+            for (const p of filteredPlaceholders) next[p.position] = prev[p.position] || ''
             return next
           })
         }

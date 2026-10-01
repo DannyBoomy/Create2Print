@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
 
-    const { imageUrl, imageBase64, prompt, productId, productName, sizeLabel, color, finish, variantId, price } = await req.json()
+    const { imageUrl, imageBase64, prompt, productId, productName, sizeLabel, color, finish, variantId, price, printAreaImages } = await req.json()
 
     const id = Math.random().toString(36).slice(2, 10)
     const fileName = `saved/${token.email}/${id}.png`
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         finish: finish || null,
         variant_id: variantId,
         price,
+        print_area_images: printAreaImages || null,
       })
       .select()
       .single()

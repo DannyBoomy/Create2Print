@@ -17,6 +17,7 @@ interface SavedDesign {
   variant_id: number
   price: number
   created_at: string
+  print_area_images: Record<string, string> | null
 }
 
 export default function SavedPage() {
@@ -56,6 +57,7 @@ export default function SavedPage() {
       imageUrl: design.image_url,
       prompt: design.prompt,
       price: design.price,
+      printAreaImages: design.print_area_images || null,
     }))
     router.push('/?from_saved=1')
   }
@@ -151,6 +153,7 @@ export default function SavedPage() {
                         prompt: design.prompt,
                         price: design.price,
                         addToCart: true,
+                        printAreaImages: design.print_area_images || null,
                       }))
                       router.push('/?from_saved=1')
                     }}
