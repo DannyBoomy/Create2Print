@@ -934,53 +934,38 @@ export default function Home() {
     if (!selectedSize || generationsLeft <= 0) return
     // Multi-area: need at least one filled prompt. Single: need prompt.
     const isMultiArea = printAreas.length > 1
-    if (isMultiArea && !Object.values(printAreaPrompts).some(v => v.trim())) return
-    if (!isMultiArea && !prompt.trim()) return
+    // Determine active prompt — use printAreaPrompts if multi-area, otherwise single prompt
+    const activePromptText = isMultiArea
+      ? Object.values(printAreaPrompts).find(v => v.trim()) || ''
+      : prompt.trim()
+    if (!activePromptText) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
-      // Get print area dimensions from state, cache, or API
-      let pw = selectedSize.printAreaWidth
-      let ph = selectedSize.printAreaHeight
-      let pos = selectedSize.printAreaPosition || 'front'
+      // Always fetch exact print area dimensions from Printify API for selected variant
+      let pw = 3000
+      let ph = 3000
+      let pos = 'front'
 
-      // Ensure we have valid dimensions — use known areas, cache, or API
-      if (!pw || !ph || pw === 0 || ph === 0) {
-        const bpId = selectedProduct!.printifyBlueprintId
-
-        // 1. Check hardcoded known areas first
-        const knownAreas = KNOWN_PRINT_AREAS[bpId]
-        if (knownAreas?.[0]) {
-          pw = knownAreas[0].width
-          ph = knownAreas[0].height
-          pos = knownAreas[0].position
-        } else {
-          // 2. Check cache
-          const cacheKey = `${bpId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
-          const cached = printAreaCache.current.get(cacheKey)
-          if (cached) {
-            pw = cached.width
-            ph = cached.height
-            pos = cached.position
-          } else {
-            // 3. Fetch from API as last resort
-            try {
-              const paRes = await fetch(`/api/print-areas?blueprint=${bpId}&provider=${selectedProduct!.printifyPrintProviderId}`)
-              const paData = await paRes.json()
-              const variants = paData?.variants || []
-              const variant = variants.find((v: any) => v.id === selectedSize.variantId)
-              if (variant?.placeholders?.[0]) {
-                pw = variant.placeholders[0].width
-                ph = variant.placeholders[0].height
-                pos = variant.placeholders[0].position
-              }
-            } catch {}
-          }
+      try {
+        const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct!.printifyBlueprintId}&provider=${selectedProduct!.printifyPrintProviderId}`)
+        const paData = await paRes.json()
+        const paVariants = paData?.variants || []
+        const paVariant = paVariants.find((v: any) => v.id === selectedSize.variantId)
+        const frontPlaceholder = paVariant?.placeholders?.find((p: any) => p.position === 'front') || paVariant?.placeholders?.[0]
+        if (frontPlaceholder) {
+          pw = frontPlaceholder.width
+          ph = frontPlaceholder.height
+          pos = frontPlaceholder.position
         }
+      } catch (e) {
+        console.error('Failed to fetch print areas:', e)
       }
+
+      console.log('GENERATE dimensions:', { pw, ph, pos, variantId: selectedSize.variantId })
 
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim(), width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
+        body: JSON.stringify({ prompt: activePromptText, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {
