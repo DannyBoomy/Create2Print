@@ -137,6 +137,26 @@ export default function SavedPage() {
                   </p>
                   <p className="text-xs font-bold text-[#6d3df3] mt-1">{formatPrice(design.price)}</p>
                   <p className="text-[10px] text-[#9ca3af] mt-1 line-clamp-2">{design.prompt}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // Store in sessionStorage with addToCart flag
+                      sessionStorage.setItem('c2p_saved_order', JSON.stringify({
+                        productId: design.product_id,
+                        sizeLabel: design.size_label,
+                        color: design.color,
+                        finish: design.finish,
+                        variantId: design.variant_id,
+                        imageUrl: design.image_url,
+                        prompt: design.prompt,
+                        price: design.price,
+                        addToCart: true,
+                      }))
+                      router.push('/?from_saved=1')
+                    }}
+                    className="mt-2 w-full py-1.5 rounded-xl bg-[#f0ecff] text-[#6d3df3] text-xs font-bold hover:bg-[#e4dcff] transition-all">
+                    🛒 Add to Cart
+                  </button>
                 </div>
               </div>
             ))}

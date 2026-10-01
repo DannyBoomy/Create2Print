@@ -933,7 +933,7 @@ export default function Home() {
 
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: activePrompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
+        body: JSON.stringify({ prompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {

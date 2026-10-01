@@ -234,7 +234,7 @@ function getProductContext(title: string): string {
   if (t.includes('shirt') || t.includes('tee')) return 'This design will be printed on a t-shirt. Bold graphics work best.'
   if (t.includes('magnet')) return 'This design will be printed on a car magnet. Clean logos with transparent backgrounds work best.'
   if (t.includes('cutting board')) return 'This design will be printed on a glass cutting board.'
-  if (t.includes('cooler')) return 'This design will wrap around a can cooler.'
+  if (t.includes('cooler')) return 'This design will wrap around a can cooler. The image should be '
   if (t.includes('coaster')) return 'This design will be printed on a ceramic coaster.'
   if (t.includes('wrap') || t.includes('gift')) return 'This design will be printed as a repeating pattern on gift wrapping paper.'
   if (t.includes('mat') || t.includes('desk')) return 'This design will be printed on a desk mat.'
