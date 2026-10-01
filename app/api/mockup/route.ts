@@ -12,9 +12,20 @@ const supabase = createClient(
 )
 
 async function uploadImageToPrintify(imageUrl: string, label: string): Promise<string> {
-  const uploadPayload = imageUrl.startsWith('data:')
-    ? { file_name: `c2p-${label}-${Date.now()}.png`, contents: imageUrl.split(',')[1] }
-    : { file_name: `c2p-${label}-${Date.now()}.png`, url: imageUrl }
+  let contents: string
+
+  if (imageUrl.startsWith('data:')) {
+    // Already base64
+    contents = imageUrl.split(',')[1]
+  } else {
+    // Fetch URL and convert to base64 — more reliable than letting Printify fetch it
+    const res = await fetch(imageUrl)
+    if (!res.ok) throw new Error(`Failed to fetch image for ${label}`)
+    const buffer = await res.arrayBuffer()
+    contents = Buffer.from(buffer).toString('base64')
+  }
+
+  const uploadPayload = { file_name: `c2p-${label}-${Date.now()}.png`, contents }
 
   const res = await axios.post(
     `${PRINTIFY_API}/uploads/images.json`,
