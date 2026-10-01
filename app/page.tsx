@@ -581,6 +581,27 @@ function StepBar({ step }: { step: Step }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────
+// Hardcoded print areas per blueprint — defined outside component to avoid hydration issues
+const KNOWN_PRINT_AREAS: Record<number, Array<{position: string, width: number, height: number}>> = {
+  49:   [
+    { position: 'front',        width: 4200, height: 5100 },
+    { position: 'back',         width: 4200, height: 5100 },
+    { position: 'left_sleeve',  width: 1800, height: 1800 },
+    { position: 'right_sleeve', width: 1800, height: 1800 },
+  ],
+  706:  [{ position: 'front', width: 4200, height: 5100 }],
+  77:   [{ position: 'front', width: 4200, height: 5100 }],
+  5:    [{ position: 'front', width: 4200, height: 5100 }],
+  1447: [{ position: 'front', width: 2400, height: 1200 }],
+  1743: [{ position: 'front_dtf', width: 1654, height: 756 }],
+  421:  [{ position: 'front', width: 1332, height: 2051 }],
+  1273: [{ position: 'front', width: 1326, height: 2045 }],
+  1313: [{ position: 'front', width: 3000, height: 3600 }],
+  1389: [{ position: 'front', width: 2175, height: 4350 }],
+  951:  [{ position: 'front', width: 2800, height: 2100 }],
+  938:  [{ position: 'front', width: 3300, height: 2400 }],
+}
+
 export default function Home() {
   const { data: session } = useSession()
   const { products: PRODUCTS, loading: productsLoading } = useProducts()
@@ -751,27 +772,6 @@ export default function Home() {
   }, [PRODUCTS])
 
   // When product changes, reset color/finish/size
-  // Hardcoded print areas per blueprint — reliable fallback
-  const KNOWN_PRINT_AREAS: Record<number, Array<{position: string, width: number, height: number}>> = {
-    49:   [
-      { position: 'front',        width: 4200, height: 5100 },
-      { position: 'back',         width: 4200, height: 5100 },
-      { position: 'left_sleeve',  width: 1800, height: 1800 },
-      { position: 'right_sleeve', width: 1800, height: 1800 },
-    ], // Crewneck Sweatshirt
-    706:  [{ position: 'front', width: 4200, height: 5100 }],
-    77:   [{ position: 'front', width: 4200, height: 5100 }],
-    5:    [{ position: 'front', width: 4200, height: 5100 }],
-    1447: [{ position: 'front', width: 2400, height: 1200 }],
-    1743: [{ position: 'front_dtf', width: 1654, height: 756 }],
-    421:  [{ position: 'front', width: 1332, height: 2051 }],
-    1273: [{ position: 'front', width: 1326, height: 2045 }],
-    1313: [{ position: 'front', width: 3000, height: 3600 }],
-    1389: [{ position: 'front', width: 2175, height: 4350 }],
-    951:  [{ position: 'front', width: 2800, height: 2100 }],
-    938:  [{ position: 'front', width: 3300, height: 2400 }],
-  }
-
   // Fetch print areas for selected product when entering create step
   const fetchPrintAreasForProduct = async (product: Product) => {
     // Use hardcoded areas if available
