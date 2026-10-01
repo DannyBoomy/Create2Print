@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   let productId: string | null = null
 
   try {
-    const { imageUrl, blueprintId, printProviderId, variantId, tempPath } = await req.json()
+    const { imageUrl, blueprintId, printProviderId, variantId, tempPath, printAreaPosition, printAreaImages } = await req.json()
 
     console.log('MOCKUP REQUEST - blueprintId:', blueprintId, 'variantId:', variantId)
     console.log('Image type:', imageUrl?.startsWith('data:') ? 'base64' : 'URL')

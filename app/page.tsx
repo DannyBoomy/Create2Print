@@ -596,6 +596,9 @@ export default function Home() {
   const [transparentBg, setTransparentBg] = useState(false)
   const [referenceImage, setReferenceImage] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
+  const [printAreaPrompts, setPrintAreaPrompts] = useState<Record<string, string>>({})
+  const [printAreas, setPrintAreas] = useState<Array<{position: string, width: number, height: number}>>([])
+  const [printAreaImages, setPrintAreaImages] = useState<Record<string, string>>({})
   const [modifyPrompt, setModifyPrompt] = useState('')
   const [promptSuggestions, setPromptSuggestions] = useState<string[]>(getRandomPrompts)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
@@ -748,6 +751,34 @@ export default function Home() {
   }, [PRODUCTS])
 
   // When product changes, reset color/finish/size
+  // Fetch print areas for selected product when entering create step
+  const fetchPrintAreasForProduct = async (product: Product) => {
+    try {
+      const res = await fetch(`/api/print-areas?blueprint=${product.printifyBlueprintId}&provider=${product.printifyPrintProviderId}`)
+      const data = await res.json()
+      const variants = data?.variants || []
+      if (variants[0]?.placeholders?.length > 1) {
+        setPrintAreas(variants[0].placeholders.map((p: any) => ({
+          position: p.position,
+          width: p.width,
+          height: p.height,
+        })))
+        // Init empty prompts per area
+        const initial: Record<string, string> = {}
+        for (const p of variants[0].placeholders) {
+          initial[p.position] = ''
+        }
+        setPrintAreaPrompts(initial)
+      } else {
+        setPrintAreas([])
+        setPrintAreaPrompts({})
+      }
+    } catch {
+      setPrintAreas([])
+      setPrintAreaPrompts({})
+    }
+  }
+
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
     setSelectedColor(product.colors[0]?.label || 'Default')
@@ -866,7 +897,11 @@ export default function Home() {
   }
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || !selectedSize || generationsLeft <= 0) return
+    if (!selectedSize || generationsLeft <= 0) return
+    // Multi-area: need at least one filled prompt. Single: need prompt.
+    const isMultiArea = printAreas.length > 1
+    if (isMultiArea && !Object.values(printAreaPrompts).some(v => v.trim())) return
+    if (!isMultiArea && !prompt.trim()) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
     try {
       // Get print area dimensions from state, cache, or API
@@ -898,7 +933,7 @@ export default function Home() {
 
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
+        body: JSON.stringify({ prompt: activePrompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {
@@ -1325,7 +1360,8 @@ export default function Home() {
                             {selectedSize && (
                               <button
                                 type="button"
-                                onClick={() => setStep('create')}
+                                onClick={() => { setStep('create'); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
+                                onClick={() => { setStep('create'); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
                                 className="mt-3 w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.25)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
                                 ✦ Continue — Design Your Art →
                               </button>
@@ -1401,10 +1437,33 @@ export default function Home() {
             {createMode === 'generate' && (
               <div className="space-y-5">
                 <div>
-                  <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe your artwork</label>
-                  <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-                    placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
-                    rows={5} className={inputClass + " resize-none leading-relaxed"} />
+                  {printAreas.length > 1 ? (
+                    // Multi-print-area: separate prompt box per area
+                    <div className="space-y-4">
+                      <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest block">Describe your artwork</label>
+                      {printAreas.map(area => (
+                        <div key={area.position}>
+                          <label className="text-xs font-semibold text-[#6d3df3] uppercase tracking-wide mb-1.5 block capitalize">
+                            {area.position.replace(/_/g, ' ')}
+                          </label>
+                          <textarea
+                            value={printAreaPrompts[area.position] || ''}
+                            onChange={e => setPrintAreaPrompts(prev => ({ ...prev, [area.position]: e.target.value }))}
+                            placeholder={`Describe the ${area.position.replace(/_/g, ' ')} design...`}
+                            rows={3}
+                            className={inputClass + " resize-none leading-relaxed"} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Single print area: original single prompt
+                    <div>
+                      <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-2 block">Describe your artwork</label>
+                      <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+                        placeholder="A majestic snow-capped mountain range at golden hour, oil painting style, dramatic clouds..."
+                        rows={5} className={inputClass + " resize-none leading-relaxed"} />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1453,7 +1512,7 @@ export default function Home() {
                   <span>{generationsLeft} generation{generationsLeft !== 1 ? 's' : ''} remaining today</span>
                 </div>
                 {error && <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-red-500 text-sm">{error}</div>}
-                <button onClick={handleGenerate} disabled={generating || !prompt.trim() || generationsLeft <= 0} className={primaryBtn}>
+                <button onClick={handleGenerate} disabled={generating || (printAreas.length > 1 ? !Object.values(printAreaPrompts).some(v => v.trim()) : !prompt.trim()) || generationsLeft <= 0} className={primaryBtn}>
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
