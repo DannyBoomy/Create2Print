@@ -938,26 +938,38 @@ export default function Home() {
       let ph = selectedSize.printAreaHeight
       let pos = selectedSize.printAreaPosition || 'front'
 
-      // Ensure we have valid dimensions — refetch if missing or zero
+      // Ensure we have valid dimensions — use known areas, cache, or API
       if (!pw || !ph || pw === 0 || ph === 0) {
-        const cacheKey = `${selectedProduct!.printifyBlueprintId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
-        const cached = printAreaCache.current.get(cacheKey)
-        if (cached) {
-          pw = cached.width
-          ph = cached.height
-          pos = cached.position
+        const bpId = selectedProduct!.printifyBlueprintId
+
+        // 1. Check hardcoded known areas first
+        const knownAreas = KNOWN_PRINT_AREAS[bpId]
+        if (knownAreas?.[0]) {
+          pw = knownAreas[0].width
+          ph = knownAreas[0].height
+          pos = knownAreas[0].position
         } else {
-          try {
-            const paRes = await fetch(`/api/print-areas?blueprint=${selectedProduct!.printifyBlueprintId}&provider=${selectedProduct!.printifyPrintProviderId}`)
-            const paData = await paRes.json()
-            const variants = paData?.variants || []
-            const variant = variants.find((v: any) => v.id === selectedSize.variantId)
-            if (variant?.placeholders?.[0]) {
-              pw = variant.placeholders[0].width
-              ph = variant.placeholders[0].height
-              pos = variant.placeholders[0].position
-            }
-          } catch {}
+          // 2. Check cache
+          const cacheKey = `${bpId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
+          const cached = printAreaCache.current.get(cacheKey)
+          if (cached) {
+            pw = cached.width
+            ph = cached.height
+            pos = cached.position
+          } else {
+            // 3. Fetch from API as last resort
+            try {
+              const paRes = await fetch(`/api/print-areas?blueprint=${bpId}&provider=${selectedProduct!.printifyPrintProviderId}`)
+              const paData = await paRes.json()
+              const variants = paData?.variants || []
+              const variant = variants.find((v: any) => v.id === selectedSize.variantId)
+              if (variant?.placeholders?.[0]) {
+                pw = variant.placeholders[0].width
+                ph = variant.placeholders[0].height
+                pos = variant.placeholders[0].position
+              }
+            } catch {}
+          }
         }
       }
 
