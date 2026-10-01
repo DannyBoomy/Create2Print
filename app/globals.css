@@ -18,7 +18,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: #fbfbff;
+  background: linear-gradient(to right, #c5c5c5, #ffffff 50%, #fbfbff);
   color: var(--c2p-ink);
   font-family: 'DM Sans', sans-serif;
   margin: 0;
