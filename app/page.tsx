@@ -994,7 +994,8 @@ export default function Home() {
           })
           const data = await res.json()
           if (!res.ok) return { position, imageUrl: null, tempPath: null, error: data.error }
-          return { position, imageUrl: data.mockupImageUrl || data.imageUrl, tempPath: data.tempPath, error: null }
+          // Use base64 imageUrl for Printify upload — Supabase URLs are private
+          return { position, imageUrl: data.imageUrl, tempPath: data.tempPath, error: null }
         }))
 
         const failed = results.find(r => r.error || !r.imageUrl)
@@ -1005,10 +1006,11 @@ export default function Home() {
         }
         setPrintAreaImages(collectedPrintAreaImages)
 
-        // Use front as the main display image
+        // Use front as the main display image — use imageUrl (base64) for Printify upload
         const frontResult = results.find(r => r.position === 'front') || results[0]
-        mainImageUrl = frontResult.imageUrl
+        mainImageUrl = frontResult.imageUrl  // base64 for Printify
         mainTempPath = frontResult.tempPath || null
+        setGeneratedImage(mainImageUrl)
       } else {
         // Single area
         const res = await fetch('/api/generate', {
@@ -2199,7 +2201,7 @@ export default function Home() {
             <span className="hidden sm:inline">Art for a brighter world.</span>
           </div>
           <div className="flex gap-5">
-            <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contt</a>
+            <a href="mailto:support@create2print.store" className="transition hover:text-[#5d26ef]">Contact</a>
             <span>© 2025 Create2Print</span>
           </div>
         </div>
