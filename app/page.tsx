@@ -751,23 +751,52 @@ export default function Home() {
   }, [PRODUCTS])
 
   // When product changes, reset color/finish/size
+  // Hardcoded print areas per blueprint — reliable fallback
+  const KNOWN_PRINT_AREAS: Record<number, Array<{position: string, width: number, height: number}>> = {
+    49:   [
+      { position: 'front',        width: 4200, height: 5100 },
+      { position: 'back',         width: 4200, height: 5100 },
+      { position: 'left_sleeve',  width: 1800, height: 1800 },
+      { position: 'right_sleeve', width: 1800, height: 1800 },
+    ], // Crewneck Sweatshirt
+    706:  [{ position: 'front', width: 4200, height: 5100 }],
+    77:   [{ position: 'front', width: 4200, height: 5100 }],
+    5:    [{ position: 'front', width: 4200, height: 5100 }],
+    1447: [{ position: 'front', width: 2400, height: 1200 }],
+    1743: [{ position: 'front_dtf', width: 1654, height: 756 }],
+    421:  [{ position: 'front', width: 1332, height: 2051 }],
+    1273: [{ position: 'front', width: 1326, height: 2045 }],
+    1313: [{ position: 'front', width: 3000, height: 3600 }],
+    1389: [{ position: 'front', width: 2175, height: 4350 }],
+    951:  [{ position: 'front', width: 2800, height: 2100 }],
+    938:  [{ position: 'front', width: 3300, height: 2400 }],
+  }
+
   // Fetch print areas for selected product when entering create step
   const fetchPrintAreasForProduct = async (product: Product) => {
+    // Use hardcoded areas if available
+    const known = KNOWN_PRINT_AREAS[product.printifyBlueprintId]
+    if (known) {
+      setPrintAreas(known.length > 1 ? known : [])
+      const initial: Record<string, string> = {}
+      if (known.length > 1) {
+        for (const p of known) initial[p.position] = ''
+        setPrintAreaPrompts(initial)
+      } else {
+        setPrintAreaPrompts({})
+      }
+      return
+    }
+    // Fallback: fetch from API
     try {
       const res = await fetch(`/api/print-areas?blueprint=${product.printifyBlueprintId}&provider=${product.printifyPrintProviderId}`)
       const data = await res.json()
       const variants = data?.variants || []
-      if (variants[0]?.placeholders?.length > 1) {
-        setPrintAreas(variants[0].placeholders.map((p: any) => ({
-          position: p.position,
-          width: p.width,
-          height: p.height,
-        })))
-        // Init empty prompts per area
+      const areas = variants[0]?.placeholders || []
+      if (areas.length > 1) {
+        setPrintAreas(areas.map((p: any) => ({ position: p.position, width: p.width, height: p.height })))
         const initial: Record<string, string> = {}
-        for (const p of variants[0].placeholders) {
-          initial[p.position] = ''
-        }
+        for (const p of areas) initial[p.position] = ''
         setPrintAreaPrompts(initial)
       } else {
         setPrintAreas([])
@@ -909,7 +938,9 @@ export default function Home() {
       let ph = selectedSize.printAreaHeight
       let pos = selectedSize.printAreaPosition || 'front'
 
-      if (!pw || !ph) {
+      // Ensure we have valid dimensions — null/0 both need refetch
+      if (!pw || !ph || pw === 0 || ph === 0) {
+        pw = null; ph = null
         const cacheKey = `${selectedProduct!.printifyBlueprintId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
         const cached = printAreaCache.current.get(cacheKey)
         if (cached) {
@@ -933,7 +964,7 @@ export default function Home() {
 
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
+        body: JSON.stringify({ prompt: prompt.trim(), width: pw || 3000, height: ph || 3000, transparentBg, productContext: selectedProduct?.productContext || '' })
       })
       const data = await res.json()
       if (!res.ok) {
