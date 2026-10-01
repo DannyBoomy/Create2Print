@@ -940,7 +940,7 @@ export default function Home() {
 
       // Ensure we have valid dimensions — null/0 both need refetch
       if (!pw || !ph || pw === 0 || ph === 0) {
-        pw = null; ph = null
+        pw = undefined; ph = undefined
         const cacheKey = `${selectedProduct!.printifyBlueprintId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
         const cached = printAreaCache.current.get(cacheKey)
         if (cached) {
