@@ -1109,7 +1109,9 @@ export default function Home() {
       }
 
       // Find the selected variant's full placeholder data
+      console.log('Looking for variantId:', size.variantId, 'in', variants.slice(0,3).map((v:any) => v.id))
       const selectedVariant = variants.find((v: any) => v.id === size.variantId)
+      console.log('Found variant:', selectedVariant?.id, 'placeholders:', selectedVariant?.placeholders?.length)
       const placeholders = selectedVariant?.placeholders || []
 
       // Update selectedSize with front dimensions
