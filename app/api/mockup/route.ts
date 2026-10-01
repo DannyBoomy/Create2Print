@@ -11,49 +11,70 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function uploadImageToPrintify(imageUrl: string, label: string): Promise<string> {
+  const uploadPayload = imageUrl.startsWith('data:')
+    ? { file_name: `c2p-${label}-${Date.now()}.png`, contents: imageUrl.split(',')[1] }
+    : { file_name: `c2p-${label}-${Date.now()}.png`, url: imageUrl }
+
+  const res = await axios.post(
+    `${PRINTIFY_API}/uploads/images.json`,
+    uploadPayload,
+    { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
+  )
+  if (!res.data?.id) throw new Error(`Upload failed for ${label}`)
+  return res.data.id
+}
+
 export async function POST(req: NextRequest) {
   let productId: string | null = null
 
   try {
     const { imageUrl, blueprintId, printProviderId, variantId, tempPath, printAreaPosition, printAreaImages } = await req.json()
 
-    console.log('MOCKUP REQUEST - blueprintId:', blueprintId, 'variantId:', variantId)
-    console.log('Image type:', imageUrl?.startsWith('data:') ? 'base64' : 'URL')
-
-    // Upload image to Printify
-    let uploadPayload: any
-    if (imageUrl && imageUrl.startsWith('data:')) {
-      const base64Data = imageUrl.split(',')[1]
-      uploadPayload = { file_name: `c2p-${Date.now()}.png`, contents: base64Data }
-    } else {
-      uploadPayload = { file_name: `c2p-${Date.now()}.png`, url: imageUrl }
-    }
-
-    const uploadRes = await axios.post(
-      `${PRINTIFY_API}/uploads/images.json`,
-      uploadPayload,
-      { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
-    )
-
-    const printifyImageId = uploadRes.data.id
-    if (!printifyImageId) throw new Error('Image upload failed')
-    console.log('Upload success, image ID:', printifyImageId)
+    console.log('MOCKUP REQUEST - blueprintId:', blueprintId, 'variantId:', variantId, 'areas:', printAreaImages ? Object.keys(printAreaImages) : ['front'])
 
     const scale = 1.0
-    // Note: ensure AI generates correct aspect ratio by using printAreaWidth/Height from product
+    let placeholders: any[] = []
+
+    if (printAreaImages && Object.keys(printAreaImages).length > 1) {
+      // Multi-area: upload each area's image separately
+      console.log('Multi-area mockup — uploading', Object.keys(printAreaImages).length, 'images')
+
+      const uploadResults = await Promise.all(
+        Object.entries(printAreaImages).map(async ([position, url]: [string, any]) => {
+          try {
+            const imageId = await uploadImageToPrintify(url, position)
+            console.log(`Uploaded ${position}:`, imageId)
+            return { position, imageId }
+          } catch (e: any) {
+            console.error(`Failed to upload ${position}:`, e?.response?.data || e?.message)
+            return { position, imageId: null }
+          }
+        })
+      )
+
+      placeholders = uploadResults
+        .filter(u => u.imageId)
+        .map(u => ({
+          position: u.position,
+          images: [{ id: u.imageId, x: 0.5, y: 0.5, scale, angle: 0 }]
+        }))
+
+      console.log('Placeholders built:', placeholders.map(p => p.position))
+    } else {
+      // Single area — upload main image
+      const printifyImageId = await uploadImageToPrintify(imageUrl, 'front')
+      console.log('Single area upload success, image ID:', printifyImageId)
+      const position = printAreaPosition || 'front'
+      placeholders = [{ position, images: [{ id: printifyImageId, x: 0.5, y: 0.5, scale, angle: 0 }] }]
+    }
 
     const payload = {
       title: 'Create2Print Preview',
       blueprint_id: Number(blueprintId),
       print_provider_id: Number(printProviderId),
       variants: [{ id: Number(variantId), price: 1000, is_enabled: true }],
-      print_areas: [{
-        variant_ids: [Number(variantId)],
-        placeholders: [{
-          position: 'front',
-          images: [{ id: printifyImageId, x: 0.5, y: 0.5, scale, angle: 0 }]
-        }]
-      }]
+      print_areas: [{ variant_ids: [Number(variantId)], placeholders }]
     }
 
     const productRes = await axios.post(
@@ -79,12 +100,12 @@ export async function POST(req: NextRequest) {
       ).catch(() => {})
     }
 
-    // Note: temp file stays in Supabase so image 1 in carousel keeps working
-    // It gets deleted when user resets via /api/delete-temp
-
     console.log('Final mockup count:', mockupUrls.length)
 
-    return NextResponse.json({ mockupUrl: mockupUrls[0] || null, mockupUrls, printifyImageId })
+    // Get primary image ID for reference (first area's upload)
+    const primaryImageId = placeholders[0]?.images?.[0]?.id || null
+
+    return NextResponse.json({ mockupUrl: mockupUrls[0] || null, mockupUrls, printifyImageId: primaryImageId })
 
   } catch (error: any) {
     if (productId) {

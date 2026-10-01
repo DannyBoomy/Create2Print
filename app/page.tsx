@@ -642,6 +642,7 @@ export default function Home() {
   const [quantityInput, setQuantityInput] = useState('1')
   const [loadingPrintArea, setLoadingPrintArea] = useState(false)
   const printAreaCache = useRef<Map<string, { width: number; height: number; position: string }>>(new Map())
+  const printAreasRef = useRef<Array<{position: string, width: number, height: number}>>([])
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -779,35 +780,33 @@ export default function Home() {
   // When product changes, reset color/finish/size
   // Fetch print areas for selected product when entering create step
   const fetchPrintAreasForProduct = async (product: Product) => {
+    let areas: Array<{position: string, width: number, height: number}> = []
+
     // Use hardcoded areas if available
     const known = KNOWN_PRINT_AREAS[product.printifyBlueprintId]
     if (known) {
-      setPrintAreas(known.length > 1 ? known : [])
-      const initial: Record<string, string> = {}
-      if (known.length > 1) {
-        for (const p of known) initial[p.position] = ''
-        setPrintAreaPrompts(initial)
-      } else {
-        setPrintAreaPrompts({})
+      areas = known
+    } else {
+      // Fetch from API
+      try {
+        const res = await fetch(`/api/print-areas?blueprint=${product.printifyBlueprintId}&provider=${product.printifyPrintProviderId}`)
+        const data = await res.json()
+        const variants = data?.variants || []
+        const placeholders = variants[0]?.placeholders || []
+        areas = placeholders.map((p: any) => ({ position: p.position, width: p.width, height: p.height }))
+      } catch {
+        areas = []
       }
-      return
     }
-    // Fallback: fetch from API
-    try {
-      const res = await fetch(`/api/print-areas?blueprint=${product.printifyBlueprintId}&provider=${product.printifyPrintProviderId}`)
-      const data = await res.json()
-      const variants = data?.variants || []
-      const areas = variants[0]?.placeholders || []
-      if (areas.length > 1) {
-        setPrintAreas(areas.map((p: any) => ({ position: p.position, width: p.width, height: p.height })))
-        const initial: Record<string, string> = {}
-        for (const p of areas) initial[p.position] = ''
-        setPrintAreaPrompts(initial)
-      } else {
-        setPrintAreas([])
-        setPrintAreaPrompts({})
-      }
-    } catch {
+
+    // Store in BOTH state (for UI) and ref (for generate, sync access)
+    printAreasRef.current = areas
+    if (areas.length > 1) {
+      setPrintAreas(areas)
+      const initial: Record<string, string> = {}
+      for (const p of areas) initial[p.position] = ''
+      setPrintAreaPrompts(initial)
+    } else {
       setPrintAreas([])
       setPrintAreaPrompts({})
     }
@@ -936,10 +935,11 @@ export default function Home() {
   const handleGenerate = async () => {
     if (!selectedSize || generationsLeft <= 0) return
     // Multi-area: need at least one filled prompt. Single: need prompt.
-    const isMultiArea = printAreas.length > 1
-    // Determine active prompt — use printAreaPrompts if multi-area, otherwise single prompt
+    // isMultiArea: check printAreaPrompts directly — don't rely on printAreas state which may not be populated yet
+    const filledAreaPrompts = Object.entries(printAreaPrompts).filter(([, v]) => v.trim())
+    const isMultiArea = filledAreaPrompts.length > 1
     const activePromptText = isMultiArea
-      ? Object.values(printAreaPrompts).find(v => v.trim()) || ''
+      ? filledAreaPrompts[0][1]
       : prompt.trim()
     if (!activePromptText) return
     setGenerating(true); setError(null); setGeneratedImage(null); setMockupUrls([])
@@ -972,20 +972,26 @@ export default function Home() {
 
       if (isMultiArea) {
         // Generate one image per area in parallel
-        const areaEntries = printAreas.filter(area => printAreaPrompts[area.position]?.trim())
-        const results = await Promise.all(areaEntries.map(async (area) => {
+        // Use ref for dimensions — always up to date, no state timing issues
+        const refAreas = printAreasRef.current
+        const results = await Promise.all(filledAreaPrompts.map(async ([position, areaPrompt]) => {
+          // Get exact dimensions for this area from ref
+          const refArea = refAreas.find(a => a.position === position)
+          const areaWidth = refArea?.width || 3000
+          const areaHeight = refArea?.height || 3000
           const res = await fetch('/api/generate', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              prompt: printAreaPrompts[area.position].trim(),
-              width: area.width || pw || 3000,
-              height: area.height || ph || 3000,
+              prompt: areaPrompt.trim(),
+              width: areaWidth,
+              height: areaHeight,
               transparentBg,
               productContext: ''
             })
           })
           const data = await res.json()
-          return { position: area.position, imageUrl: data.mockupImageUrl || data.imageUrl, tempPath: data.tempPath, error: data.error }
+          if (!res.ok) return { position, imageUrl: null, tempPath: null, error: data.error }
+          return { position, imageUrl: data.mockupImageUrl || data.imageUrl, tempPath: data.tempPath, error: null }
         }))
 
         const failed = results.find(r => r.error || !r.imageUrl)
