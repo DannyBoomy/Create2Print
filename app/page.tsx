@@ -1361,7 +1361,6 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() => { setStep('create'); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
-                                onClick={() => { setStep('create'); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
                                 className="mt-3 w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.25)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
                                 ✦ Continue — Design Your Art →
                               </button>
