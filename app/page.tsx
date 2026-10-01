@@ -589,9 +589,7 @@ const KNOWN_PRINT_AREAS: Record<number, Array<{position: string, width: number, 
     { position: 'left_sleeve',  width: 1800, height: 1800 },
     { position: 'right_sleeve', width: 1800, height: 1800 },
   ],
-  706:  [{ position: 'front', width: 4200, height: 5100 }],
-  77:   [{ position: 'front', width: 4200, height: 5100 }],
-  5:    [{ position: 'front', width: 4200, height: 5100 }],
+  // 706, 77, 5 removed — let API return full multi-area data for these
   1447: [{ position: 'front', width: 2400, height: 1200 }],
   1743: [{ position: 'front_dtf', width: 1654, height: 756 }],
   421:  [{ position: 'front', width: 1332, height: 2051 }],
@@ -778,37 +776,42 @@ export default function Home() {
   }, [PRODUCTS])
 
   // When product changes, reset color/finish/size
-  // Fetch print areas for selected product when entering create step
+  // Called when user hits Continue — ref already populated by handleSizeSelect
+  // This just ensures UI prompt boxes are shown if ref has multi-area data
   const fetchPrintAreasForProduct = async (product: Product) => {
-    let areas: Array<{position: string, width: number, height: number}> = []
+    const areas = printAreasRef.current
 
-    // Use hardcoded areas if available
-    const known = KNOWN_PRINT_AREAS[product.printifyBlueprintId]
-    if (known) {
-      areas = known
+    if (areas.length > 1) {
+      // Ref already has data from handleSizeSelect — just update UI
+      setPrintAreas(areas)
+      setPrintAreaPrompts(prev => {
+        const next: Record<string, string> = {}
+        for (const p of areas) next[p.position] = prev[p.position] || ''
+        return next
+      })
     } else {
-      // Fetch from API
+      // Ref empty — size wasn't selected yet or product has single area
+      // Try fetching from API as fallback
       try {
         const res = await fetch(`/api/print-areas?blueprint=${product.printifyBlueprintId}&provider=${product.printifyPrintProviderId}`)
         const data = await res.json()
         const variants = data?.variants || []
         const placeholders = variants[0]?.placeholders || []
-        areas = placeholders.map((p: any) => ({ position: p.position, width: p.width, height: p.height }))
+        const mapped = placeholders.map((p: any) => ({ position: p.position, width: p.width, height: p.height }))
+        printAreasRef.current = mapped
+        if (mapped.length > 1) {
+          setPrintAreas(mapped)
+          const initial: Record<string, string> = {}
+          for (const p of mapped) initial[p.position] = ''
+          setPrintAreaPrompts(initial)
+        } else {
+          setPrintAreas([])
+          setPrintAreaPrompts({})
+        }
       } catch {
-        areas = []
+        setPrintAreas([])
+        setPrintAreaPrompts({})
       }
-    }
-
-    // Store in BOTH state (for UI) and ref (for generate, sync access)
-    printAreasRef.current = areas
-    if (areas.length > 1) {
-      setPrintAreas(areas)
-      const initial: Record<string, string> = {}
-      for (const p of areas) initial[p.position] = ''
-      setPrintAreaPrompts(initial)
-    } else {
-      setPrintAreas([])
-      setPrintAreaPrompts({})
     }
   }
 
@@ -1089,31 +1092,47 @@ export default function Home() {
 
     const cacheKey = `${selectedProduct.printifyBlueprintId}-${selectedProduct.printifyPrintProviderId}`
 
-    // Check cache first
-    const cached = printAreaCache.current.get(`${cacheKey}-${size.variantId}`)
-    if (cached) {
-      setSelectedSize({ ...size, printAreaWidth: cached.width, printAreaHeight: cached.height, printAreaPosition: cached.position })
-      return
-    }
-
-    // Fetch from Printify
+    // Fetch from Printify — get all placeholders for this variant
     try {
       const res = await fetch(`/api/print-areas?blueprint=${selectedProduct.printifyBlueprintId}&provider=${selectedProduct.printifyPrintProviderId}`)
       const data = await res.json()
       const variants = data?.variants || []
 
-      // Cache all variants from this product
+      // Cache front placeholder per variant for dimension lookup
       for (const v of variants) {
-        const p = v.placeholders?.[0]
-        if (p) {
-          printAreaCache.current.set(`${cacheKey}-${v.id}`, { width: p.width, height: p.height, position: p.position })
+        const front = v.placeholders?.find((p: any) => p.position === 'front') || v.placeholders?.[0]
+        if (front) {
+          printAreaCache.current.set(`${cacheKey}-${v.id}`, { width: front.width, height: front.height, position: front.position })
         }
       }
 
-      // Apply to current size
-      const variantData = printAreaCache.current.get(`${cacheKey}-${size.variantId}`)
-      if (variantData) {
-        setSelectedSize({ ...size, printAreaWidth: variantData.width, printAreaHeight: variantData.height, printAreaPosition: variantData.position })
+      // Find the selected variant's full placeholder data
+      const selectedVariant = variants.find((v: any) => v.id === size.variantId)
+      const placeholders = selectedVariant?.placeholders || []
+
+      // Update selectedSize with front dimensions
+      const frontPlaceholder = placeholders.find((p: any) => p.position === 'front') || placeholders[0]
+      if (frontPlaceholder) {
+        setSelectedSize({ ...size, printAreaWidth: frontPlaceholder.width, printAreaHeight: frontPlaceholder.height, printAreaPosition: frontPlaceholder.position })
+      }
+
+      // Populate printAreasRef with this variant's exact placeholders
+      if (placeholders.length > 0) {
+        printAreasRef.current = placeholders.map((p: any) => ({
+          position: p.position,
+          width: p.width,
+          height: p.height,
+        }))
+
+        // Also update UI prompt boxes if multi-area
+        if (placeholders.length > 1) {
+          setPrintAreas(printAreasRef.current)
+          setPrintAreaPrompts(prev => {
+            const next: Record<string, string> = {}
+            for (const p of placeholders) next[p.position] = prev[p.position] || ''
+            return next
+          })
+        }
       }
     } catch (e) {
       console.error('Failed to fetch print areas:', e)
