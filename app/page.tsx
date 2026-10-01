@@ -466,6 +466,7 @@ function SaveDesignButton({ image, prompt, product, size, color, finish, printAr
   const handleSave = async () => {
     if (!session) { signIn('google'); return }
     if (!product || !size) return
+    console.log('SAVE - printAreaImages:', printAreaImages, 'keys:', printAreaImages ? Object.keys(printAreaImages) : [])
     setSaving(true); setError(null)
     try {
       const res = await fetch('/api/save-design', {
@@ -1889,6 +1890,7 @@ export default function Home() {
                     size={selectedSize}
                     color={selectedColor}
                     finish={selectedFinish}
+                    printAreaImages={printAreaImages}
                   />
                 </div>
               </div>
