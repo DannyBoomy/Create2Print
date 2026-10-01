@@ -938,9 +938,8 @@ export default function Home() {
       let ph = selectedSize.printAreaHeight
       let pos = selectedSize.printAreaPosition || 'front'
 
-      // Ensure we have valid dimensions — null/0 both need refetch
+      // Ensure we have valid dimensions — refetch if missing or zero
       if (!pw || !ph || pw === 0 || ph === 0) {
-        pw = undefined; ph = undefined
         const cacheKey = `${selectedProduct!.printifyBlueprintId}-${selectedProduct!.printifyPrintProviderId}-${selectedSize.variantId}`
         const cached = printAreaCache.current.get(cacheKey)
         if (cached) {
