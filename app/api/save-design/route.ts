@@ -42,6 +42,28 @@ export async function POST(req: NextRequest) {
 
     const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
 
+    // Upload each print area image to Supabase and store public URLs
+    let savedPrintAreaImages: Record<string, string> | null = null
+    if (printAreaImages && Object.keys(printAreaImages).length > 1) {
+      savedPrintAreaImages = {}
+      for (const [position, imgData] of Object.entries(printAreaImages)) {
+        if (position === 'front') {
+          // Front already saved above
+          savedPrintAreaImages[position] = publicUrl
+          continue
+        }
+        try {
+          const areaFileName = `saved/${token.email}/${id}-${position}.png`
+          const areaBuffer = Buffer.from((imgData as string).replace(/^data:image\/\w+;base64,/, ''), 'base64')
+          await supabase.storage.from('designs').upload(areaFileName, areaBuffer, { contentType: 'image/png', upsert: false })
+          const { data: { publicUrl: areaUrl } } = supabase.storage.from('designs').getPublicUrl(areaFileName)
+          savedPrintAreaImages[position] = areaUrl
+        } catch (e) {
+          console.error(`Failed to save ${position} image:`, e)
+        }
+      }
+    }
+
     // Insert record
     const { data, error: insertError } = await supabase
       .from('saved_designs')
@@ -56,7 +78,7 @@ export async function POST(req: NextRequest) {
         finish: finish || null,
         variant_id: variantId,
         price,
-        print_area_images: printAreaImages || null,
+        print_area_images: savedPrintAreaImages,
       })
       .select()
       .single()
