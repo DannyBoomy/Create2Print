@@ -4,6 +4,28 @@ import { createClient } from '@supabase/supabase-js'
 const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
 
+// Hardcoded print area fallbacks for products where API data may be empty
+const PRINT_AREA_FALLBACKS: Record<number, { width: number; height: number; position: string }> = {
+  // Apparel — front chest print area
+  706:  { width: 4200, height: 5100, position: 'front' }, // Garment Dyed T-shirt
+  49:   { width: 4200, height: 5100, position: 'front' }, // Crewneck Sweatshirt
+  77:   { width: 4200, height: 5100, position: 'front' }, // Hoodie
+  5:    { width: 4200, height: 5100, position: 'front' }, // Cotton Crew Tee
+  // Hats
+  1447: { width: 2400, height: 1200, position: 'front' }, // Dad Cap
+  1743: { width: 1654, height: 756,  position: 'front_dtf' }, // Snapback Trucker Cap
+  // Phone cases — portrait
+  421:  { width: 1332, height: 2051, position: 'front' }, // Tough Cases
+  1273: { width: 1326, height: 2045, position: 'front' }, // Magnetic Cases
+  // Tote bags
+  1313: { width: 3000, height: 3600, position: 'front' }, // Canvas Tote Bag
+  1389: { width: 2175, height: 4350, position: 'front' }, // AOP Tote (smallest size)
+  // Can cooler — landscape
+  951:  { width: 2800, height: 2100, position: 'front' }, // Can Cooler
+  // Cutting board
+  938:  { width: 3300, height: 2400, position: 'front' }, // Glass Cutting Board
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -87,7 +109,7 @@ export async function GET(req: NextRequest) {
               price: retailCents || 2000,
               printAreaWidth: pw || null,
               printAreaHeight: ph || null,
-              printAreaPosition: frontPlaceholder?.position || null,
+              printAreaPosition: frontPlaceholder?.position || PRINT_AREA_FALLBACKS[row.blueprint_id]?.position || null,
               placeholderCount: storedPlaceholders.length,
             }
           })
@@ -221,7 +243,7 @@ function getProductContext(title: string): string {
   if (t.includes('canvas') && t.includes('frame')) return 'This design will be printed on a framed canvas. Gallery-quality artwork.'
   if (t.includes('canvas')) return 'This design will be printed on a stretched canvas.'
   if (t.includes('tapestry')) return 'This design will be printed on a wall tapestry. Full coverage designs with rich colors work best.'
-  if (t.includes('mug')) return 'This image will go on a mug'
+  if (t.includes('mug')) return 'This design will wrap around a ceramic mug. Consider panoramic wrap-around designs.'
   if (t.includes('tumbler')) return 'This design will wrap around a tumbler. A seamless wrap-around pattern works best.'
   if (t.includes('blanket') || t.includes('sherpa') || t.includes('fleece') || t.includes('woven') || t.includes('velveteen')) return 'This design will be printed on a blanket. Bold patterns at large scale work well.'
   if (t.includes('rug')) return 'This design will be printed on an area rug. Consider geometric patterns.'
@@ -229,12 +251,12 @@ function getProductContext(title: string): string {
   if (t.includes('puzzle')) return 'This design will be printed on a jigsaw puzzle. Detailed and colorful designs work best.'
   if (t.includes('tote') || t.includes('bag')) return 'This design will be printed on a tote bag. Bold, simple designs work best.'
   if (t.includes('case')) return 'This design will be printed on a phone case. Portrait orientation designs work best.'
-  if (t.includes('cap') || t.includes('hat')) return 'This design will be printed on a cap.'
+  if (t.includes('cap') || t.includes('hat')) return 'This design will be printed on a cap. Simple, bold designs work best.'
   if (t.includes('hoodie') || t.includes('sweatshirt')) return 'This design will be printed on a sweatshirt. Consider designs for the front chest area.'
   if (t.includes('shirt') || t.includes('tee')) return 'This design will be printed on a t-shirt. Bold graphics work best.'
   if (t.includes('magnet')) return 'This design will be printed on a car magnet. Clean logos with transparent backgrounds work best.'
   if (t.includes('cutting board')) return 'This design will be printed on a glass cutting board.'
-  if (t.includes('cooler')) return 'This design will wrap around a can cooler. The image should be '
+  if (t.includes('cooler')) return 'This design will wrap around a can cooler. Focus design elements on the upper and lower thirds.'
   if (t.includes('coaster')) return 'This design will be printed on a ceramic coaster.'
   if (t.includes('wrap') || t.includes('gift')) return 'This design will be printed as a repeating pattern on gift wrapping paper.'
   if (t.includes('mat') || t.includes('desk')) return 'This design will be printed on a desk mat.'
