@@ -1,271 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
 
 const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
-
-// Hardcoded print areas — full multi-area support
-const PRINT_AREA_FALLBACKS: Record<number, Array<{ width: number; height: number; position: string }>> = {
-  // Apparel
-  49:   [
-    { width: 4200, height: 5100, position: 'front' },
-    { width: 4200, height: 5100, position: 'back' },
-    { width: 1800, height: 1800, position: 'left_sleeve' },
-    { width: 1800, height: 1800, position: 'right_sleeve' },
-  ], // Crewneck Sweatshirt
-  706:  [{ width: 4200, height: 5100, position: 'front' }], // Garment Dyed T-shirt
-  77:   [{ width: 4200, height: 5100, position: 'front' }], // Hoodie
-  5:    [{ width: 4200, height: 5100, position: 'front' }], // Cotton Crew Tee
-  // Hats
-  1447: [{ width: 2400, height: 1200, position: 'front' }],
-  1743: [{ width: 1654, height: 756,  position: 'front_dtf' }],
-  // Phone cases
-  421:  [{ width: 1332, height: 2051, position: 'front' }],
-  1273: [{ width: 1326, height: 2045, position: 'front' }],
-  // Tote bags
-  1313: [{ width: 3000, height: 3600, position: 'front' }],
-  1389: [{ width: 2175, height: 4350, position: 'front' }],
-  // Can cooler
-  951:  [{ width: 2800, height: 2100, position: 'front' }],
-  // Cutting board
-  938:  [{ width: 3300, height: 2400, position: 'front' }],
-}
+const SHOP_ID = process.env.PRINTIFY_SHOP_ID
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// In-memory cache — persists across requests on same Vercel instance
-let cachedProducts: any[] | null = null
-let cacheTimestamp: number = 0
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+async function uploadImageToPrintify(imageUrl: string, label: string): Promise<string> {
+  const uploadPayload = imageUrl.startsWith('data:')
+    ? { file_name: `c2p-${label}-${Date.now()}.png`, contents: imageUrl.split(',')[1] }
+    : { file_name: `c2p-${label}-${Date.now()}.png`, url: imageUrl }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const bust = searchParams.get('bust') === '1'
+  const res = await axios.post(
+    `${PRINTIFY_API}/uploads/images.json`,
+    uploadPayload,
+    { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
+  )
+  if (!res.data?.id) throw new Error(`Upload failed for ${label}`)
+  return res.data.id
+}
 
-  // Return cached products if fresh
-  if (!bust && cachedProducts && Date.now() - cacheTimestamp < CACHE_TTL) {
-    return NextResponse.json({ products: cachedProducts, cached: true })
-  }
+export async function POST(req: NextRequest) {
+  let productId: string | null = null
+
   try {
-    const [allowlistRes, catalogRes] = await Promise.all([
-      supabase.from('product_allowlist').select('*').eq('enabled', true).order('display_order'),
-      supabase.from('product_catalog').select('*'),
-    ])
+    const { imageUrl, blueprintId, printProviderId, variantId, tempPath, printAreaPosition, printAreaImages } = await req.json()
 
-    if (allowlistRes.error) throw allowlistRes.error
-    if (catalogRes.error) throw catalogRes.error
+    console.log('MOCKUP REQUEST - blueprintId:', blueprintId, 'variantId:', variantId, 'areas:', printAreaImages ? Object.keys(printAreaImages) : ['front'])
 
-    const allowlist = allowlistRes.data || []
-    const catalog = catalogRes.data || []
+    const scale = 1.0
+    let placeholders: any[] = []
 
-    const catalogMap = new Map<string, any>()
-    for (const item of catalog) {
-      catalogMap.set(`${item.blueprint_id}-${item.provider_id}`, item)
+    if (printAreaImages && Object.keys(printAreaImages).length > 1) {
+      // Multi-area: upload each area's image separately
+      console.log('Multi-area mockup — uploading', Object.keys(printAreaImages).length, 'images')
+
+      const uploadResults = await Promise.all(
+        Object.entries(printAreaImages).map(async ([position, url]: [string, any]) => {
+          try {
+            const imageId = await uploadImageToPrintify(url, position)
+            console.log(`Uploaded ${position}:`, imageId)
+            return { position, imageId }
+          } catch (e: any) {
+            console.error(`Failed to upload ${position}:`, e?.response?.data || e?.message)
+            return { position, imageId: null }
+          }
+        })
+      )
+
+      placeholders = uploadResults
+        .filter(u => u.imageId)
+        .map(u => ({
+          position: u.position,
+          images: [{ id: u.imageId, x: 0.5, y: u.position.includes('sleeve') ? 0.25 : 0.5, scale, angle: 0 }]
+        }))
+
+      console.log('Placeholders built:', placeholders.map(p => p.position))
+    } else {
+      // Single area — upload main image
+      const printifyImageId = await uploadImageToPrintify(imageUrl, 'front')
+      console.log('Single area upload success, image ID:', printifyImageId)
+      const position = printAreaPosition || 'front'
+      placeholders = [{ position, images: [{ id: printifyImageId, x: 0.5, y: 0.5, scale, angle: 0 }] }]
     }
 
-    // Print areas are fetched on-demand when user selects a variant
-    // via /api/print-areas?blueprint=X&provider=Y — not fetched here
+    const payload = {
+      title: 'Create2Print Preview',
+      blueprint_id: Number(blueprintId),
+      print_provider_id: Number(printProviderId),
+      variants: [{ id: Number(variantId), price: 1000, is_enabled: true }],
+      print_areas: [{ variant_ids: [Number(variantId)], placeholders }]
+    }
 
-    const products = allowlist.map((row: any) => {
-      const cat = catalogMap.get(`${row.blueprint_id}-${row.provider_id}`)
-      if (!cat) return null
+    const productRes = await axios.post(
+      `${PRINTIFY_API}/shops/${SHOP_ID}/products.json`,
+      payload,
+      { headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } }
+    )
 
-      const variants = cat.variants || []
-      // Print areas fetched on-demand — not available here
-      const variantPlaceholders = null
+    productId = productRes.data?.id
+    const allImages = productRes.data?.images || []
+    console.log('Product created! ID:', productId, '| Images:', allImages.length)
 
-      // Group by color → finish → sizes
-      const colorMap = new Map<string, Map<string, any[]>>()
-      for (const v of variants) {
-        const color = v.options?.color || 'Default'
-        const finish = v.options?.finish || v.options?.paper || v.options?.surface || 'Standard'
-        if (!colorMap.has(color)) colorMap.set(color, new Map())
-        const finishMap = colorMap.get(color)!
-        if (!finishMap.has(finish)) finishMap.set(finish, [])
-        finishMap.get(finish)!.push(v)
-      }
+    const mockupUrls = allImages
+      .filter((img: any) => img?.src)
+      .map((img: any) => img.src as string)
+      .filter((url: string, i: number, arr: string[]) => arr.indexOf(url) === i)
 
-      const colors = Array.from(colorMap.entries()).map(([colorLabel, finishMapInner]) => {
-        const finishes = Array.from(finishMapInner.entries()).map(([finishLabel, finishVariants]) => {
-          const sizes = finishVariants.map((v: any) => {
-            // Print area fetched on-demand when user selects variant
-            // Stored in Supabase catalog from populate route
-            const storedPlaceholders = v.placeholders || []
-            const frontPlaceholder = storedPlaceholders.find((p: any) => p.position === 'front') || storedPlaceholders[0] || null
+    // Delete temp product from Printify
+    if (productId) {
+      await axios.delete(
+        `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
+        { headers: { Authorization: `Bearer ${API_KEY}` } }
+      ).catch(() => {})
+    }
 
-            const pw = frontPlaceholder?.width || 0
-            const ph = frontPlaceholder?.height || 0
+    console.log('Final mockup count:', mockupUrls.length)
 
-            const productionCents = v.cost || 0
-            const shippingCents = row.shipping_cents || 0
-            const prodWithPremium = Math.round(productionCents * 0.8)
-            const retailCents = (productionCents > 0 && shippingCents > 0)
-              ? Math.round(((prodWithPremium + shippingCents + 30) / (1 - 0.30 - 0.029)) / 50) * 50
-              : Math.round((prodWithPremium / 0.671) / 50) * 50
+    // Get primary image ID for reference (first area's upload)
+    const primaryImageId = placeholders[0]?.images?.[0]?.id || null
 
-            return {
-              label: v.options?.size || v.title,
-              width: pw ? Math.round(pw / 100) : 10,
-              height: ph ? Math.round(ph / 100) : 10,
-              variantId: v.id,
-              price: retailCents || 2000,
-              printAreaWidth: pw || null,
-              printAreaHeight: ph || null,
-              printAreaPosition: frontPlaceholder?.position || PRINT_AREA_FALLBACKS[row.blueprint_id]?.[0]?.position || null,
-              placeholderCount: storedPlaceholders.length,
-            }
-          })
-          return { label: finishLabel, sizes }
-        })
-        return { label: colorLabel, hex: getColorHex(colorLabel), finishes }
-      })
+    return NextResponse.json({ mockupUrl: mockupUrls[0] || null, mockupUrls, printifyImageId: primaryImageId })
 
-      const hasColors = colorMap.size > 1
-      const allFinishes = Array.from(new Set(variants.map((v: any) =>
-        v.options?.finish || v.options?.paper || v.options?.surface).filter(Boolean)))
-      const hasFinishes = allFinishes.length > 1
-      const firstPlaceholders = variants[0]?.placeholders?.length
-        ? variants[0].placeholders
-        : PRINT_AREA_FALLBACKS[row.blueprint_id] || []
-
-      return {
-        id: `bp-${row.blueprint_id}-${row.provider_id}`,
-        blueprintId: row.blueprint_id,
-        providerId: row.provider_id,
-        name: cat.title,
-        description: shortDescription(cat.title, cat.description || ''),
-        emoji: getProductEmoji(cat.title),
-        category: row.category,
-        printifyBlueprintId: row.blueprint_id,
-        printifyPrintProviderId: row.provider_id,
-        hasColors,
-        hasFinishes,
-        recommendTransparent: row.recommend_transparent || false,
-        canCoolerConstraint: row.can_cooler_constraint || false,
-        hasMultiplePrintAreas: firstPlaceholders.length > 1,
-        customImage: row.custom_image_url || null,
-        catalogImages: cat.images || [],
-        productContext: getProductContext(cat.title),
-        colors,
-      }
-    }).filter(Boolean)
-
-    // Store in cache
-    cachedProducts = products
-    cacheTimestamp = Date.now()
-
-    return NextResponse.json({ products, cached: false })
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message }, { status: 500 })
+  } catch (error: any) {
+    if (productId) {
+      await axios.delete(
+        `${PRINTIFY_API}/shops/${SHOP_ID}/products/${productId}.json`,
+        { headers: { Authorization: `Bearer ${API_KEY}` } }
+      ).catch(() => {})
+    }
+    console.error('MOCKUP ERROR:', JSON.stringify(error?.response?.data || error?.message, null, 2))
+    return NextResponse.json({ mockupUrl: null, mockupUrls: [], printifyImageId: null })
   }
-}
-
-function shortDescription(title: string, rawDescription: string): string {
-  const t = title.toLowerCase()
-  if (t.includes('poster') && t.includes('vertical')) return 'Premium matte vertical poster. Vibrant colors, sharp detail, perfect for any wall.'
-  if (t.includes('poster')) return 'Premium poster print, rolled and shipped in a protective tube.'
-  if (t.includes('canvas') && t.includes('frame')) return 'Gallery-quality canvas in a solid wood frame. Arrives ready to hang.'
-  if (t.includes('canvas')) return 'Gallery-quality canvas wrap with vivid color reproduction. Ready to hang.'
-  if (t.includes('tapestry')) return 'Soft woven tapestry with vibrant all-over print. Perfect for any room.'
-  if (t.includes('black mug') || (t.includes('mug') && t.includes('black'))) return 'Classic black ceramic mug with bold color interior. Dishwasher safe, 11oz or 15oz.'
-  if (t.includes('accent') && t.includes('mug')) return 'Ceramic mug with colored accent handle and interior. Dishwasher safe, 11oz or 15oz.'
-  if (t.includes('mug')) return 'Classic ceramic mug. Dishwasher safe, available in 11oz and 15oz.'
-  if (t.includes('tumbler')) return 'Insulated 20oz tumbler. Keeps drinks hot or cold for hours.'
-  if (t.includes('woven blanket')) return 'Premium woven blanket with photo-quality print. Soft, warm, and built to last.'
-  if (t.includes('sherpa') || t.includes('fleece')) return 'Ultra-cozy sherpa fleece blanket. Soft on both sides with vibrant print.'
-  if (t.includes('arctic')) return 'Warm arctic fleece blanket with vivid all-over print. Perfect for cold nights.'
-  if (t.includes('velveteen') || t.includes('plush')) return 'Super soft velveteen plush blanket. Perfect gift for anyone.'
-  if (t.includes('rug')) return 'Custom printed area rug. Soft, durable, and machine washable.'
-  if (t.includes('curtain')) return 'Custom printed shower curtain. Water-resistant with vibrant full-coverage print.'
-  if (t.includes('puzzle')) return 'Custom jigsaw puzzle. Choose your piece count for more or less challenge.'
-  if (t.includes('coaster')) return 'Custom ceramic coaster with cork backing. Protects your surfaces in style.'
-  if (t.includes('mat') || t.includes('desk')) return 'Premium stitched edge desk mat. Elevate your workspace with a custom design.'
-  if (t.includes('magnet')) return 'Weather-resistant car magnet. Easy to apply and remove.'
-  if (t.includes('tote') && t.includes('aop')) return 'All-over print tote bag with full coverage design. Durable and spacious.'
-  if (t.includes('tote') || t.includes('canvas bag')) return 'Sturdy cotton canvas tote bag. Great for everyday use.'
-  if (t.includes('cutting board')) return 'Tempered glass cutting board with full-color print. Functional and decorative.'
-  if (t.includes('can cooler')) return 'Custom printed can cooler. Keeps your drink cold and your hands dry.'
-  if (t.includes('tough case')) return 'Dual-layer protective phone case. Hard shell with soft TPU lining.'
-  if (t.includes('magnetic') && t.includes('case')) return 'MagSafe-compatible impact-resistant phone case. Glossy or matte finish.'
-  if (t.includes('dad cap')) return 'Classic unstructured dad cap with adjustable strap. One size fits all.'
-  if (t.includes('trucker') || t.includes('snapback')) return 'Snapback trucker cap with mesh back. One size fits all.'
-  if (t.includes('hoodie') || (t.includes('sweatshirt') && t.includes('hood'))) return 'Classic pullover hoodie with kangaroo pocket. Warm, comfortable, true to size.'
-  if (t.includes('crewneck') || t.includes('sweatshirt')) return 'Classic crewneck sweatshirt. Heavyweight fleece, warm and comfortable.'
-  if (t.includes('shirt') || t.includes('tee')) return 'Classic unisex t-shirt. Soft cotton with a comfortable relaxed fit.'
-  if (t.includes('wrap') || t.includes('gift')) return 'Custom printed gift wrapping paper. Available in matte and satin finish.'
-  const clean = rawDescription.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-  return clean.slice(0, 120).trim()
-}
-
-function getColorHex(color: string): string {
-  const map: Record<string, string> = {
-    'Black': '#1a1a1a', 'White': '#ffffff', 'Navy': '#1f2e5e', 'Red': '#cc2222',
-    'Blue': '#1a4fa3', 'Green': '#2a6b2a', 'Grey': '#888888', 'Gray': '#888888',
-    'Pink': '#f4a7b9', 'Purple': '#6b2fa0', 'Orange': '#e87722', 'Yellow': '#f5d000',
-    'Brown': '#6b3a2a', 'Maroon': '#6b1a1a', 'Natural': '#c8a97e', 'Espresso': '#3b1f0a',
-    'Charcoal': '#444444', 'Ash': '#b8b8b8', 'Sport Grey': '#999999', 'Dark Heather': '#555555',
-    'Forest Green': '#2d5a1b', 'Royal': '#1a3fa3', 'Gold': '#c9a227', 'Sand': '#c2a67a',
-    'Ivory': '#f5f0e0', 'Khaki': '#c3a96b', 'Cream': '#f5f0dc', 'Indigo': '#3d3580',
-    'Heather Grey': '#aaaaaa', 'Dark Chocolate': '#3b1f0a', 'Light Blue': '#a8c8e8',
-    'Light Pink': '#f9c8d8', 'Cardinal Red': '#9b1a2a', 'Military Green': '#4a5a2a',
-  }
-  for (const [key, hex] of Object.entries(map)) {
-    if (color.toLowerCase().includes(key.toLowerCase())) return hex
-  }
-  return '#cccccc'
-}
-
-function getProductEmoji(title: string): string {
-  const t = title.toLowerCase()
-  if (t.includes('poster')) return '🖼️'
-  if (t.includes('canvas') && t.includes('frame')) return '🪞'
-  if (t.includes('canvas')) return '🎨'
-  if (t.includes('tapestry')) return '🏴'
-  if (t.includes('mug') || t.includes('cup')) return '☕'
-  if (t.includes('tumbler')) return '🥤'
-  if (t.includes('blanket') || t.includes('sherpa') || t.includes('fleece') || t.includes('woven') || t.includes('velveteen')) return '🛋️'
-  if (t.includes('rug')) return '🏠'
-  if (t.includes('curtain')) return '🚿'
-  if (t.includes('puzzle')) return '🧩'
-  if (t.includes('coaster')) return '🫖'
-  if (t.includes('tote') || t.includes('bag')) return '👜'
-  if (t.includes('case')) return '📱'
-  if (t.includes('cap') || t.includes('hat')) return '🧢'
-  if (t.includes('hoodie') || t.includes('sweatshirt')) return '🧥'
-  if (t.includes('shirt') || t.includes('tee')) return '👕'
-  if (t.includes('magnet')) return '🚗'
-  if (t.includes('cutting board')) return '🍳'
-  if (t.includes('cooler') || t.includes('can')) return '🥤'
-  if (t.includes('wrap') || t.includes('gift')) return '🎁'
-  if (t.includes('mat') || t.includes('desk')) return '💻'
-  return '✨'
-}
-
-function getProductContext(title: string): string {
-  const t = title.toLowerCase()
-  if (t.includes('poster')) return 'This design will be printed on a poster. Consider bold colors and striking compositions.'
-  if (t.includes('canvas') && t.includes('frame')) return 'This design will be printed on a framed canvas. Gallery-quality artwork.'
-  if (t.includes('canvas')) return 'This design will be printed on a stretched canvas.'
-  if (t.includes('tapestry')) return 'This design will be printed on a wall tapestry. Full coverage designs with rich colors work best.'
-  if (t.includes('mug')) return 'This design will wrap around a ceramic mug. Consider panoramic wrap-around designs.'
-  if (t.includes('tumbler')) return 'This design will wrap around a tumbler. A seamless wrap-around pattern works best.'
-  if (t.includes('blanket') || t.includes('sherpa') || t.includes('fleece') || t.includes('woven') || t.includes('velveteen')) return 'This design will be printed on a blanket. Bold patterns at large scale work well.'
-  if (t.includes('rug')) return 'This design will be printed on an area rug. Consider geometric patterns.'
-  if (t.includes('curtain')) return 'This design will be printed on a shower curtain. Full coverage patterns work best.'
-  if (t.includes('puzzle')) return 'This design will be printed on a jigsaw puzzle. Detailed and colorful designs work best.'
-  if (t.includes('tote') || t.includes('bag')) return 'This design will be printed on a tote bag. Bold, simple designs work best.'
-  if (t.includes('case')) return 'This design will be printed on a phone case. Portrait orientation designs work best.'
-  if (t.includes('cap') || t.includes('hat')) return 'This design will be printed on a cap. Simple, bold designs work best.'
-  if (t.includes('hoodie') || t.includes('sweatshirt')) return 'This design will be printed on a sweatshirt. Consider designs for the front chest area.'
-  if (t.includes('shirt') || t.includes('tee')) return 'This design will be printed on a t-shirt. Bold graphics work best.'
-  if (t.includes('magnet')) return 'This design will be printed on a car magnet. Clean logos with transparent backgrounds work best.'
-  if (t.includes('cutting board')) return 'This design will be printed on a glass cutting board.'
-  if (t.includes('cooler')) return 'This design will wrap around a can cooler. Focus design elements on the upper and lower thirds.'
-  if (t.includes('coaster')) return 'This design will be printed on a ceramic coaster.'
-  if (t.includes('wrap') || t.includes('gift')) return 'This design will be printed as a repeating pattern on gift wrapping paper.'
-  if (t.includes('mat') || t.includes('desk')) return 'This design will be printed on a desk mat.'
-  return `This design will be printed on a ${title.toLowerCase()}.`
 }
