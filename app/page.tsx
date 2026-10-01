@@ -621,7 +621,7 @@ export default function Home() {
   const [printAreas, setPrintAreas] = useState<Array<{position: string, width: number, height: number}>>([])
   const [printAreaImages, setPrintAreaImages] = useState<Record<string, string>>({})
   const [modifyPrompt, setModifyPrompt] = useState('')
-  const [promptSuggestions, setPromptSuggestions] = useState<string[]>(getRandomPrompts)
+  const [promptSuggestions, setPromptSuggestions] = useState<string[]>([])
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [mockupUrls, setMockupUrls] = useState<string[]>([])
@@ -636,12 +636,7 @@ export default function Home() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxStartIdx, setLightboxStartIdx] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const stored = localStorage.getItem('c2p_cart')
-      return stored ? JSON.parse(stored) : []
-    } catch { return [] }
-  })
+  const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [quantityInput, setQuantityInput] = useState('1')
@@ -684,6 +679,16 @@ export default function Home() {
   const colorOptions: ColorOption[] = selectedProduct?.colors || []
   const finishOptions: FinishOption[] = selectedProduct ? getFinishes(selectedProduct, selectedColor) : []
   const sizeOptions: SizeOption[] = (selectedProduct && selectedFinish) ? getSizes(selectedProduct, selectedColor, selectedFinish) : []
+
+  useEffect(() => {
+    // Load cart from localStorage on mount
+    try {
+      const stored = localStorage.getItem('c2p_cart')
+      if (stored) setCart(JSON.parse(stored))
+    } catch {}
+    // Load random prompts on mount
+    setPromptSuggestions(getRandomPrompts())
+  }, [])
 
   useEffect(() => {
     // Admin gets unlimited generations
