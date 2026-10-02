@@ -455,8 +455,8 @@ function ShareButton({ image, prompt, product, size }: {
 }
 
 // ── Save Design Button ─────────────────────────────────────────────────
-function SaveDesignButton({ image, prompt, product, size, color, finish, printAreaImages }: {
-  image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string; printAreaImages?: Record<string, string>
+function SaveDesignButton({ image, prompt, product, size, color, finish, printAreaImages, mockupUrls }: {
+  image: string; prompt: string; product: Product | null; size: SizeOption | null; color: string; finish: string; printAreaImages?: Record<string, string>; mockupUrls?: string[]
 }) {
   const { data: session } = useSession()
   const [saving, setSaving] = useState(false)
@@ -483,6 +483,7 @@ function SaveDesignButton({ image, prompt, product, size, color, finish, printAr
           variantId: size.variantId,
           price: size.price,
           printAreaImages: printAreaImages && Object.keys(printAreaImages).length > 1 ? printAreaImages : null,
+          mockupUrls: mockupUrls && mockupUrls.length > 0 ? mockupUrls : null,
         })
       })
       const data = await res.json()
@@ -708,7 +709,7 @@ export default function Home() {
       try {
         const stored = sessionStorage.getItem('c2p_saved_order')
         if (stored) {
-          const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt, printAreaImages: savedPrintAreaImages } = JSON.parse(stored)
+          const { productId, sizeLabel, color, finish, variantId, imageUrl, prompt: savedPrompt, printAreaImages: savedPrintAreaImages, mockupUrls: savedMockupUrls } = JSON.parse(stored)
           const product = PRODUCTS.find(p => p.id === productId || p.blueprintId === parseInt(productId))
           if (product) {
             setSelectedProduct(product)
@@ -724,6 +725,7 @@ export default function Home() {
               setGeneratedImage(imageUrl)
               if (savedPrompt) setPrompt(savedPrompt)
               setLoadingMockup(true)
+              // Pass permanent Supabase URLs directly — mockup route fetches server-side
               fetch('/api/mockup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -733,7 +735,7 @@ export default function Home() {
                   blueprintId: product.printifyBlueprintId,
                   printProviderId: product.printifyPrintProviderId,
                   variantId: sizeObj.variantId,
-                  printAreaImages: savedPrintAreaImages || null,
+                  printAreaImages: savedPrintAreaImages && Object.keys(savedPrintAreaImages).length > 1 ? savedPrintAreaImages : null,
                 })
               }).then(r => r.json()).then(data => {
                 if (data.mockupUrls?.length) setMockupUrls(data.mockupUrls)
@@ -1891,6 +1893,7 @@ export default function Home() {
                     color={selectedColor}
                     finish={selectedFinish}
                     printAreaImages={printAreaImages}
+                    mockupUrls={mockupUrls}
                   />
                 </div>
               </div>

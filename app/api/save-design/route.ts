@@ -7,6 +7,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function fetchAndUpload(url: string, fileName: string): Promise<string> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to fetch image: ${url}`)
+  const buffer = Buffer.from(await res.arrayBuffer())
+  const { error } = await supabase.storage.from('designs').upload(fileName, buffer, { contentType: 'image/png', upsert: false })
+  if (error) throw error
+  const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
+  return publicUrl
+}
+
 export async function POST(req: NextRequest) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
@@ -14,58 +24,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
 
-    const { imageUrl, imageBase64, prompt, productId, productName, sizeLabel, color, finish, variantId, price, printAreaImages } = await req.json()
-    console.log('SAVE ROUTE - printAreaImages keys:', printAreaImages ? Object.keys(printAreaImages) : null)
+    const { imageUrl, imageBase64, prompt, productId, productName, sizeLabel, color, finish, variantId, price, printAreaImages, mockupUrls } = await req.json()
 
     const id = Math.random().toString(36).slice(2, 10)
     const fileName = `saved/${token.email}/${id}.png`
 
-    let buffer: Buffer
-
+    // Save front image
+    let publicUrl: string
     if (imageBase64) {
-      // Legacy base64 path
-      buffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+      const buffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+      const { error } = await supabase.storage.from('designs').upload(fileName, buffer, { contentType: 'image/png', upsert: false })
+      if (error) throw error
+      const { data: { publicUrl: url } } = supabase.storage.from('designs').getPublicUrl(fileName)
+      publicUrl = url
     } else if (imageUrl) {
-      // New path — image is a Supabase URL, fetch it and re-upload permanently
-      const res = await fetch(imageUrl)
-      if (!res.ok) throw new Error('Failed to fetch image from URL')
-      buffer = Buffer.from(await res.arrayBuffer())
+      publicUrl = await fetchAndUpload(imageUrl, fileName)
     } else {
       throw new Error('No image provided')
     }
 
-    // Upload to permanent saved/ folder
-    const { error: uploadError } = await supabase.storage
-      .from('designs')
-      .upload(fileName, buffer, { contentType: 'image/png', upsert: false })
-
-    if (uploadError) throw uploadError
-
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
-
-    // Upload each print area image to Supabase and store public URLs
+    // Save each non-front print area image to permanent storage
     let savedPrintAreaImages: Record<string, string> | null = null
     if (printAreaImages && Object.keys(printAreaImages).length > 1) {
       savedPrintAreaImages = {}
-      for (const [position, imgData] of Object.entries(printAreaImages)) {
+      for (const [position, url] of Object.entries(printAreaImages as Record<string, string>)) {
         if (position === 'front') {
-          // Front already saved above
           savedPrintAreaImages[position] = publicUrl
           continue
         }
         try {
           const areaFileName = `saved/${token.email}/${id}-${position}.png`
-          const areaBuffer = Buffer.from((imgData as string).replace(/^data:image\/\w+;base64,/, ''), 'base64')
-          await supabase.storage.from('designs').upload(areaFileName, areaBuffer, { contentType: 'image/png', upsert: false })
-          const { data: { publicUrl: areaUrl } } = supabase.storage.from('designs').getPublicUrl(areaFileName)
-          savedPrintAreaImages[position] = areaUrl
+          // URL is a Supabase temp URL — fetch and re-upload to permanent storage
+          savedPrintAreaImages[position] = await fetchAndUpload(url, areaFileName)
+          console.log(`Saved ${position} to permanent storage`)
         } catch (e) {
           console.error(`Failed to save ${position} image:`, e)
         }
       }
     }
 
-    // Insert record
     const { data, error: insertError } = await supabase
       .from('saved_designs')
       .insert({
@@ -80,6 +77,7 @@ export async function POST(req: NextRequest) {
         variant_id: variantId,
         price,
         print_area_images: savedPrintAreaImages,
+        mockup_urls: mockupUrls || null,
       })
       .select()
       .single()
