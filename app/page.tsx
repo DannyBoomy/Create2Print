@@ -1375,16 +1375,15 @@ export default function Home() {
               ) : null}
               <div className="grid grid-cols-2 gap-0.5 md:gap-4 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
-                  <div key={product.id}>
+                  <div key={product.id} id={`product-wrapper-${product.id}`}>
                     <article onClick={(e) => {
                         if (selectedProduct?.id === product.id) {
                           setSelectedProduct(null)
                         } else {
-                          const imgEl = document.getElementById(`card-img-${product.id}`)
-                          const imgTop = imgEl ? imgEl.getBoundingClientRect().top + window.pageYOffset : 0
                           handleProductSelect(product)
                           requestAnimationFrame(() => requestAnimationFrame(() => {
-                            window.scrollTo({ top: imgTop, behavior: 'smooth' })
+                            const el = document.getElementById(`product-wrapper-${product.id}`)
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
                           }))
                         }
                       }}
