@@ -1383,7 +1383,7 @@ export default function Home() {
                           handleProductSelect(product)
                           const card = e.currentTarget as HTMLElement
                           setTimeout(() => {
-                            const top = card.getBoundingClientRect().top + window.scrollY
+                            const top = card.getBoundingClientRect().top + window.scrollY - 72
                             window.scrollTo({ top, behavior: 'smooth' })
                           }, 50)
                         }
