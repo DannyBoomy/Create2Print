@@ -1376,16 +1376,15 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-0.5 md:gap-4 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id} className={`${selectedProduct?.id === product.id ? 'col-span-2' : ''}`}>
-                    <article onClick={(e) => {
+                    <article id={`card-${product.id}`} onClick={(e) => {
                         if (selectedProduct?.id === product.id) {
                           setSelectedProduct(null)
                         } else {
                           handleProductSelect(product)
-                          const card = e.currentTarget as HTMLElement
                           setTimeout(() => {
-                            const top = card.getBoundingClientRect().top + window.scrollY - 72
-                            window.scrollTo({ top, behavior: 'smooth' })
-                          }, 50)
+                            const el = document.getElementById(`card-${product.id}`)
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }, 100)
                         }
                       }}
                       className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border-0 sm:border transition duration-300 cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'sm:border-[#6d3df3] sm:ring-2 sm:ring-[#6d3df3]/10' : 'sm:border-transparent'}`}>
