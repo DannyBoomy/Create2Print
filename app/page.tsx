@@ -438,7 +438,7 @@ function ShareButton({ image, prompt, product, size }: {
           {sharing ? 'Creating link...' : 'Share'}
         </button>
         <button onClick={handleCopyLink} disabled={sharing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] border border-[#cccccc] bg-white text-[#111111] font-bold text-sm hover:bg-[#f5f5f5] transition-all active:scale-95 disabled:opacity-50">
+          className="flex items-center gap-2 px-5 py-2.5 rounded-[4px] border border-[#111111] bg-white text-[#111111] font-bold text-sm hover:bg-[#f5f5f5] transition-all active:scale-95 disabled:opacity-50 w-full justify-center">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
@@ -820,7 +820,13 @@ export default function Home() {
     }
   }
 
-  const handleProductSelect = (product: Product) => {
+  const handleProductSelect = (product: Product, cardEl?: HTMLElement) => {
+    if (cardEl) {
+      setTimeout(() => {
+        const top = cardEl.getBoundingClientRect().top + window.scrollY - 8
+        window.scrollTo({ top, behavior: 'smooth' })
+      }, 50)
+    }
     setSelectedProduct(product)
     setSelectedColor(product.colors[0]?.label || 'Default')
     setTransparentBg(product.recommendTransparent || false)
@@ -1363,30 +1369,18 @@ export default function Home() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0 px-0 sm:px-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
-                  <div key={product.id} className={selectedProduct?.id === product.id ? 'col-span-2' : ''}>
-                    <article onClick={() => handleProductSelect(product)}
+                  <div key={product.id} className={`${selectedProduct?.id === product.id ? 'col-span-2' : ''}`}>
+                    <article onClick={(e) => selectedProduct?.id === product.id ? setSelectedProduct(null) : handleProductSelect(product, e.currentTarget.parentElement as HTMLElement)}
                       className={`group relative overflow-hidden rounded-[16px] border p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
                       <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '1/1' }}>
                         {product.customImage ? (
-                          <>
-                            <img src={product.customImage} alt={product.name}
-                              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-150 group-hover:opacity-0" />
-                            {product.catalogImages?.[1] && (
-                              <img src={product.catalogImages[1]} alt={product.name}
-                                className="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-                            )}
-                          </>
+                          <img src={product.customImage} alt={product.name}
+                            className="absolute inset-0 w-full h-full object-contain" />
                         ) : product.catalogImages?.[0] ? (
-                          <>
-                            <img src={product.catalogImages[0]} alt={product.name}
-                              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-150 group-hover:opacity-0" />
-                            {product.catalogImages?.[1] && (
-                              <img src={product.catalogImages[1]} alt={product.name}
-                                className="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-                            )}
-                          </>
+                          <img src={product.catalogImages[0]} alt={product.name}
+                            className="absolute inset-0 w-full h-full object-contain" />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                             <span className="text-6xl">{product.emoji}</span>
@@ -1401,7 +1395,9 @@ export default function Home() {
                             <div className="text-[11px] text-[#747aa2]">from</div>
                             <span className="text-[17px] font-bold text-[#111111]">{formatPrice(getMinPrice(product))}</span>
                           </div>
-                          <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>→</button>
+                          <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full border text-xl transition ${selectedProduct?.id === product.id ? 'border-[#5e23f5] bg-[#5e23f5] text-white' : 'border-[#d8daec] bg-white text-[#071633] group-hover:border-[#6d3df3]'}`}>
+                            {selectedProduct?.id === product.id ? '↑' : '↓'}
+                          </button>
                         </div>
                       </div>
                     </article>
@@ -1473,7 +1469,7 @@ export default function Home() {
                             {selectedSize && (
                               <button
                                 type="button"
-                                onClick={() => { setStep('create'); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
+                                onClick={() => { setStep('create'); window.scrollTo(0,0); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
                                 className="mt-3 w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.25)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
                                 ✦ Continue — Design Your Art →
                               </button>
@@ -1922,17 +1918,19 @@ export default function Home() {
             {!loadingMockup && !modifying && activeImage && (
               <div className="mb-6 max-w-2xl mx-auto">
                 <div className="flex items-center justify-center gap-3">
-                  <ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} />
-                  <SaveDesignButton
-                    image={activeImage}
-                    prompt={prompt}
-                    product={selectedProduct}
-                    size={selectedSize}
-                    color={selectedColor}
-                    finish={selectedFinish}
-                    printAreaImages={printAreaImages}
-                    mockupUrls={mockupUrls}
-                  />
+                  <div className="flex gap-3 w-full">
+                    <div className="flex-1"><ShareButton image={activeImage} prompt={prompt} product={selectedProduct} size={selectedSize} /></div>
+                    <SaveDesignButton
+                      image={activeImage}
+                      prompt={prompt}
+                      product={selectedProduct}
+                      size={selectedSize}
+                      color={selectedColor}
+                      finish={selectedFinish}
+                      printAreaImages={printAreaImages}
+                      mockupUrls={mockupUrls}
+                    />
+                  </div>
                 </div>
               </div>
             )}
