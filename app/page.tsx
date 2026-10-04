@@ -1375,16 +1375,17 @@ export default function Home() {
               ) : null}
               <div className="grid grid-cols-2 gap-0.5 md:gap-4 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
-                  <div key={product.id} className={`${selectedProduct?.id === product.id ? 'col-span-2' : ''}`}>
+                  <div key={product.id}>
                     <article onClick={(e) => {
                         if (selectedProduct?.id === product.id) {
                           setSelectedProduct(null)
                         } else {
+                          const imgEl = document.getElementById(`card-img-${product.id}`)
+                          const imgTop = imgEl ? imgEl.getBoundingClientRect().top + window.pageYOffset : 0
                           handleProductSelect(product)
-                          setTimeout(() => {
-                            const el = document.getElementById(`card-img-${product.id}`)
-                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }, 100)
+                          requestAnimationFrame(() => requestAnimationFrame(() => {
+                            window.scrollTo({ top: imgTop, behavior: 'smooth' })
+                          }))
                         }
                       }}
                       className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border-0 sm:border transition duration-300 cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'sm:border-[#6d3df3] sm:ring-2 sm:ring-[#6d3df3]/10' : 'sm:border-transparent'}`}>
