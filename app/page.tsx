@@ -1363,12 +1363,12 @@ export default function Home() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
-                  <div key={product.id}>
+                  <div key={product.id} className={selectedProduct?.id === product.id ? 'col-span-2' : ''}>
                     <article onClick={() => handleProductSelect(product)}
                       className={`group relative overflow-hidden rounded-[16px] border p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
-                      <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '4/3' }}>
+                      <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '1/1' }}>
                         {product.customImage ? (
                           <>
                             <img src={product.customImage} alt={product.name}
@@ -1395,7 +1395,7 @@ export default function Home() {
                       </div>
                       <div className="relative px-1.5 pb-1.5 pt-3">
                         <h3 className="text-[17px] font-extrabold tracking-[-0.02em] text-[#111111]">{product.name}</h3>
-                        <p className="mt-0.5 h-[38px] max-w-[90%] text-[13px] leading-[1.4] text-[#4a5070] overflow-hidden line-clamp-2">{product.description}</p>
+                        <p className="mt-0.5 text-[11px] leading-[1.3] text-[#4a5070] overflow-hidden line-clamp-1">{product.description}</p>
                         <div className="mt-3 flex items-center justify-between">
                           <div>
                             <div className="text-[11px] text-[#747aa2]">from</div>
@@ -1407,7 +1407,7 @@ export default function Home() {
                     </article>
 
                     {selectedProduct?.id === product.id && (
-                      <div className="mt-3 space-y-4">
+                      <div className="col-span-2 mt-1 space-y-4 border border-[#6d3df3] rounded-[16px] p-4 bg-white">
 
                         {/* Color selector */}
                         {product.hasColors && (
@@ -1523,17 +1523,55 @@ export default function Home() {
         {step === 'create' && (
           <div className="mx-auto max-w-lg px-4 sm:px-8 py-8 w-full">
             <button onClick={() => setStep('product')} className={backBtn}>← Back to products</button>
-            <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff]">
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
-                <img src={PRODUCT_IMAGES[selectedProduct?.id || '']} alt="" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
-                <div className="text-sm text-[#6d3df3] font-semibold">
-                  {[selectedColor !== 'Default' ? selectedColor : null, selectedFinish !== 'Standard' && selectedFinish !== 'Matte' ? selectedFinish : null, selectedSize?.label].filter(Boolean).join(' · ')}
+            <div className="p-4 rounded-2xl mb-6 border-2 border-[#ede7ff] bg-[#f9f7ff] space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+                  {selectedProduct?.customImage ? (
+                    <img src={selectedProduct.customImage} alt="" className="w-full h-full object-contain" />
+                  ) : selectedProduct?.catalogImages?.[0] ? (
+                    <img src={selectedProduct.catalogImages[0]} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-2xl flex items-center justify-center w-full h-full">{selectedProduct?.emoji}</span>
+                  )}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-[#071633] truncate">{selectedProduct?.name}</div>
+                  <div className="text-xs text-[#747aa2] mt-0.5 line-clamp-2">{selectedProduct?.description}</div>
+                </div>
+                <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
               </div>
-              <div className="font-extrabold text-lg text-[#5924f5] flex-shrink-0">{formatPrice(selectedSize?.price || 0)}</div>
+
+              {/* Variant selectors on generate page */}
+              {selectedProduct?.hasColors && (
+                <div>
+                  <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-1.5 block">Color</label>
+                  <select value={selectedColor} onChange={e => { setSelectedColor(e.target.value); setSelectedFinish(''); setSelectedSize(null) }}
+                    className="w-full border border-[#cccccc] rounded-[6px] px-3 py-2 text-sm text-[#111111] bg-white focus:outline-none focus:border-[#6d3df3]">
+                    {selectedProduct.colors.map(c => <option key={c.label} value={c.label}>{c.label}</option>)}
+                  </select>
+                </div>
+              )}
+              {selectedProduct?.hasFinishes && finishOptions.length > 0 && (
+                <div>
+                  <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-1.5 block">Finish</label>
+                  <select value={selectedFinish} onChange={e => { setSelectedFinish(e.target.value); setSelectedSize(null) }}
+                    className="w-full border border-[#cccccc] rounded-[6px] px-3 py-2 text-sm text-[#111111] bg-white focus:outline-none focus:border-[#6d3df3]">
+                    {finishOptions.map(f => <option key={f.label} value={f.label}>{f.label}</option>)}
+                  </select>
+                </div>
+              )}
+              {sizeOptions.length > 0 && (
+                <div>
+                  <label className="text-xs font-bold text-[#8a89a8] uppercase tracking-widest mb-1.5 block">Size</label>
+                  <select value={selectedSize?.label || ''} onChange={e => {
+                    const s = sizeOptions.find(s => s.label === e.target.value)
+                    if (s) handleSizeSelect(s)
+                  }}
+                    className="w-full border border-[#cccccc] rounded-[6px] px-3 py-2 text-sm text-[#111111] bg-white focus:outline-none focus:border-[#6d3df3]">
+                    {sizeOptions.map(s => <option key={s.label} value={s.label}>{s.label} — {formatPrice(s.price)}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex bg-[#f0eeff] rounded-2xl p-1 mb-6">

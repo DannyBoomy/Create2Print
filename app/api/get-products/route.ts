@@ -4,26 +4,31 @@ import { createClient } from '@supabase/supabase-js'
 const PRINTIFY_API = 'https://api.printify.com/v1'
 const API_KEY = process.env.PRINTIFY_API_KEY
 
-// Hardcoded print area fallbacks for products where API data may be empty
-const PRINT_AREA_FALLBACKS: Record<number, { width: number; height: number; position: string }> = {
-  // Apparel — front chest print area
-  706:  { width: 4200, height: 5100, position: 'front' }, // Garment Dyed T-shirt
-  49:   { width: 4200, height: 5100, position: 'front' }, // Crewneck Sweatshirt
-  77:   { width: 4200, height: 5100, position: 'front' }, // Hoodie
-  5:    { width: 4200, height: 5100, position: 'front' }, // Cotton Crew Tee
+// Hardcoded print areas — full multi-area support
+const PRINT_AREA_FALLBACKS: Record<number, Array<{ width: number; height: number; position: string }>> = {
+  // Apparel
+  49:   [
+    { width: 4200, height: 5100, position: 'front' },
+    { width: 4200, height: 5100, position: 'back' },
+    { width: 1800, height: 1800, position: 'left_sleeve' },
+    { width: 1800, height: 1800, position: 'right_sleeve' },
+  ], // Crewneck Sweatshirt
+  706:  [{ width: 4200, height: 5100, position: 'front' }], // Garment Dyed T-shirt
+  77:   [{ width: 4200, height: 5100, position: 'front' }], // Hoodie
+  5:    [{ width: 4200, height: 5100, position: 'front' }], // Cotton Crew Tee
   // Hats
-  1447: { width: 2400, height: 1200, position: 'front' }, // Dad Cap
-  1743: { width: 1654, height: 756,  position: 'front_dtf' }, // Snapback Trucker Cap
-  // Phone cases — portrait
-  421:  { width: 1332, height: 2051, position: 'front' }, // Tough Cases
-  1273: { width: 1326, height: 2045, position: 'front' }, // Magnetic Cases
+  1447: [{ width: 2400, height: 1200, position: 'front' }],
+  1743: [{ width: 1654, height: 756,  position: 'front_dtf' }],
+  // Phone cases
+  421:  [{ width: 1332, height: 2051, position: 'front' }],
+  1273: [{ width: 1326, height: 2045, position: 'front' }],
   // Tote bags
-  1313: { width: 3000, height: 3600, position: 'front' }, // Canvas Tote Bag
-  1389: { width: 2175, height: 4350, position: 'front' }, // AOP Tote (smallest size)
-  // Can cooler — landscape
-  951:  { width: 2800, height: 2100, position: 'front' }, // Can Cooler
+  1313: [{ width: 3000, height: 3600, position: 'front' }],
+  1389: [{ width: 2175, height: 4350, position: 'front' }],
+  // Can cooler
+  951:  [{ width: 2800, height: 2100, position: 'front' }],
   // Cutting board
-  938:  { width: 3300, height: 2400, position: 'front' }, // Glass Cutting Board
+  938:  [{ width: 3300, height: 2400, position: 'front' }],
 }
 
 const supabase = createClient(
@@ -109,7 +114,7 @@ export async function GET(req: NextRequest) {
               price: retailCents || 2000,
               printAreaWidth: pw || null,
               printAreaHeight: ph || null,
-              printAreaPosition: frontPlaceholder?.position || PRINT_AREA_FALLBACKS[row.blueprint_id]?.position || null,
+              printAreaPosition: frontPlaceholder?.position || PRINT_AREA_FALLBACKS[row.blueprint_id]?.[0]?.position || null,
               placeholderCount: storedPlaceholders.length,
             }
           })
@@ -122,7 +127,9 @@ export async function GET(req: NextRequest) {
       const allFinishes = Array.from(new Set(variants.map((v: any) =>
         v.options?.finish || v.options?.paper || v.options?.surface).filter(Boolean)))
       const hasFinishes = allFinishes.length > 1
-      const firstPlaceholders = variants[0]?.placeholders || []
+      const firstPlaceholders = variants[0]?.placeholders?.length
+        ? variants[0].placeholders
+        : PRINT_AREA_FALLBACKS[row.blueprint_id] || []
 
       return {
         id: `bp-${row.blueprint_id}-${row.provider_id}`,
