@@ -644,6 +644,8 @@ export default function Home() {
   const [loadingPrintArea, setLoadingPrintArea] = useState(false)
   const printAreaCache = useRef<Map<string, { width: number; height: number; position: string }>>(new Map())
   const printAreasRef = useRef<Array<{position: string, width: number, height: number}>>([])
+  const finishSectionRef = useRef<HTMLDivElement>(null)
+  const sizeSectionRef = useRef<HTMLDivElement>(null)
   const [shipping, setShipping] = useState<ShippingInfo>({ firstName: '', lastName: '', email: '', address1: '', city: '', state: '', zip: '', country: 'US' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -849,6 +851,14 @@ export default function Home() {
   const handleFinishSelect = (finishLabel: string) => {
     setSelectedFinish(finishLabel)
     setSelectedSize(null)
+    setTimeout(() => {
+      if (sizeSectionRef.current) {
+        const el = sizeSectionRef.current
+        const top = el.getBoundingClientRect().top + window.scrollY
+        const target = top - window.innerHeight * 0.2
+        window.scrollTo({ top: target, behavior: 'smooth' })
+      }
+    }, 100)
   }
 
   const fetchShipping = async (country: string, state?: string) => {
@@ -1369,12 +1379,12 @@ export default function Home() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
+              <div className="grid grid-cols-2 gap-0.5 md:gap-4 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id} className={`${selectedProduct?.id === product.id ? 'col-span-2' : ''}`}>
                     <article onClick={(e) => selectedProduct?.id === product.id ? setSelectedProduct(null) : handleProductSelect(product, e.currentTarget.parentElement as HTMLElement)}
-                      className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border p-1.5 sm:p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
-                      <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '1/1' }}>
+                      className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border-0 sm:border transition duration-300 cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'sm:border-[#6d3df3] sm:ring-2 sm:ring-[#6d3df3]/10' : 'sm:border-transparent'}`}>
+                      <div className="relative overflow-hidden bg-transparent" style={{ aspectRatio: '4/5' }}>
                         {product.customImage ? (
                           <img src={product.customImage} alt={product.name}
                             className="absolute inset-0 w-full h-full object-contain" />
@@ -1426,7 +1436,7 @@ export default function Home() {
 
                         {/* Finish selector */}
                         {product.hasFinishes && (
-                          <div>
+                          <div ref={finishSectionRef}>
                             <h2 className="text-[15px] font-extrabold mb-2">Finish</h2>
                             <div className="flex flex-wrap gap-2">
                               {finishOptions.map(finish => (
@@ -1444,7 +1454,7 @@ export default function Home() {
 
                         {/* Size selector — 2-column grid, max 2 rows visible, scrollable */}
                         {selectedFinish && (
-                          <div>
+                          <div ref={sizeSectionRef}>
                             <div className="mb-2 flex items-end justify-between">
                               <h2 className="text-[15px] font-extrabold">Select Size</h2>
                               <p className="text-xs text-[#7a7fa3]">All sizes in inches</p>
@@ -1469,7 +1479,7 @@ export default function Home() {
                             {selectedSize && (
                               <button
                                 type="button"
-                                onClick={() => { setStep('create'); window.scrollTo(0,0); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
+                                onClick={() => { setStep('create'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0); if(selectedProduct) fetchPrintAreasForProduct(selectedProduct) }}
                                 className="mt-3 w-full rounded-[6px] bg-gradient-to-r from-[#4a1fb8] to-[#7c3aed] px-6 py-4 text-[15px] font-extrabold text-white shadow-[0_8px_24px_rgba(109,61,243,0.25)] transition hover:from-[#3b17a0] hover:to-[#6d28d9]">
                                 ✦ Continue — Design Your Art →
                               </button>
