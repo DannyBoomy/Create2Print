@@ -1387,10 +1387,10 @@ export default function Home() {
                       <div id={`card-img-${product.id}`} className={`relative overflow-hidden bg-transparent transition duration-300 ${selectedProduct?.id === product.id ? 'ring-2 ring-[#6d3df3]' : 'group-hover:ring-2 group-hover:ring-[#6d3df3]/40'}`} style={{ aspectRatio: '4/5' }}>
                         {product.customImage ? (
                           <img src={product.customImage} alt={product.name}
-                            className="absolute inset-0 w-full h-full object-contain" />
+                            className="absolute inset-0 w-full h-full object-cover" />
                         ) : product.catalogImages?.[0] ? (
                           <img src={product.catalogImages[0]} alt={product.name}
-                            className="absolute inset-0 w-full h-full object-contain" />
+                            className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                             <span className="text-6xl">{product.emoji}</span>
