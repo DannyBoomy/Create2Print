@@ -1383,8 +1383,8 @@ export default function Home() {
                           }))
                         }
                       }}
-                      className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border-0 sm:border transition duration-300 cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'sm:border-[#6d3df3] sm:ring-2 sm:ring-[#6d3df3]/10' : 'sm:border-transparent'}`}>
-                      <div id={`card-img-${product.id}`} className="relative overflow-hidden bg-transparent" style={{ aspectRatio: '4/5' }}>
+                      className="group relative cursor-pointer bg-transparent">
+                      <div id={`card-img-${product.id}`} className={`relative overflow-hidden bg-transparent transition duration-300 ${selectedProduct?.id === product.id ? 'ring-2 ring-[#6d3df3]' : 'group-hover:ring-2 group-hover:ring-[#6d3df3]/40'}`} style={{ aspectRatio: '4/5' }}>
                         {product.customImage ? (
                           <img src={product.customImage} alt={product.name}
                             className="absolute inset-0 w-full h-full object-contain" />
