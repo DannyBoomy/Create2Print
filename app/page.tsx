@@ -1369,11 +1369,11 @@ export default function Home() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0 px-0 sm:px-0">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4 -mx-4 sm:mx-0">
                 {PRODUCTS.filter(p => activeCategory === 'All' || p.category === activeCategory).map(product => (
                   <div key={product.id} className={`${selectedProduct?.id === product.id ? 'col-span-2' : ''}`}>
                     <article onClick={(e) => selectedProduct?.id === product.id ? setSelectedProduct(null) : handleProductSelect(product, e.currentTarget.parentElement as HTMLElement)}
-                      className={`group relative overflow-hidden rounded-[16px] border p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
+                      className={`group relative overflow-hidden rounded-none sm:rounded-[16px] border p-1.5 sm:p-2.5 transition duration-300 hover:-translate-y-1 hover:border-[#6d3df3] cursor-pointer bg-transparent ${selectedProduct?.id === product.id ? 'border-[#6d3df3] ring-2 ring-[#6d3df3]/10' : 'border-transparent'}`}>
                       <div className="relative overflow-hidden rounded-[10px] bg-transparent" style={{ aspectRatio: '1/1' }}>
                         {product.customImage ? (
                           <img src={product.customImage} alt={product.name}
